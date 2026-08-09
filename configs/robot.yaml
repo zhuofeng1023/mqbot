@@ -1,58 +1,60 @@
 # MQTT 连接配置
 mqtt:
-  # 连接地址
-  host: localhost
-  port: 1883
-  schema: tcp
+    # 连接地址
+    host: localhost
+    port: 1883
+    schema: tcp
 
-  # 认证
-  auth: false
-  username: ""
-  password: ""
+    # 认证
+    auth: false
+    username: ""
+    password: ""
 
-  # 会话配置
-  client_id: ""                 # 留空则自动生成 bot_xxxx
-  clean_start: true
-  keep_alive: 30                # 心跳间隔
-  session_expiry: 3600          # 会话过期时间
+    # 会话配置
+    client_id: "" # 留空则自动生成 bot_xxxx
+    clean_start: true
+    keep_alive: 30 # 心跳间隔
+    session_expiry: 3600 # 会话过期时间
 
-  # 遗嘱消息（离线时自动上报）
-  will:
-    enabled: true
-    qos: 1
-    retain: false
+    # 遗嘱消息（离线时自动上报）
+    will:
+        enabled: true
+        qos: 1
+        retain: false
 
-  # 重连策略
-  retry:
-    max_attempts: 3
-    base_delay: 1               # 初始等待时间
+    # 重连策略
+    retry:
+        # 最大重试次数
+        max_attempts: 3
+        # 重试等待时长
+        conn_retry_base: 2
 
-  # 消息默认策略
-  default_qos: 1
-  max_packet_size: 1048576      # 1MB
+    # 消息默认策略
+    default_qos: 1
+    max_packet_size: 1048576 # 1MB
 
 # 机器人行为配置
 robot:
-  # 初始参数
-  initial_speed: 1.0
-  initial_battery: 99.0
+    # 初始参数
+    initial_speed: 1.0
+    initial_battery: 99.0
 
-  # 上报阈值（避免频繁上报）
-  report:
-    battery_threshold: 1.0      # 电量变化超过 1% 上报
-    position_threshold: 0.01    # 位置变化超过 0.01 上报
-    speed_threshold: 0.1        # 速度变化超过 0.1 上报
-    interval_ms: 100            # 状态检查周期
+    # 上报阈值（避免频繁上报）
+    report:
+        battery_threshold: 1.0 # 电量变化超过 1% 上报
+        position_threshold: 0.01 # 位置变化超过 0.01 上报
+        speed_threshold: 0.1 # 速度变化超过 0.1 上报
+        interval_ms: 100 # 状态检查周期
 
-  # 电量策略
-  battery:
-    charging_rate: 2.0          # 充电时每秒增加
-    moving_drain: 1.0           # 移动时每秒消耗
-    low_battery_threshold: 20   # 低于此值自动充电
-    full_battery_threshold: 90  # 高于此值停止充电
+    # 电量策略
+    battery:
+        charging_rate: 2.0 # 充电时每秒增加
+        moving_drain: 1.0 # 移动时每秒消耗
+        low_battery_threshold: 20 # 低于此值自动充电
+        full_battery_threshold: 90 # 高于此值停止充电
 
 # 日志配置
 log:
-  level: info                   # debug, info, warn, error
-  format: text                  # text, json
-  output: stdout                # stdout, stderr, 文件路径
+    level: info # debug, info, warn, error
+    format: text # text, json
+    output: stdout # stdout, stderr, 文件路径

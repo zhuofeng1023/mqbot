@@ -1,47 +1,53 @@
 # MQTT 连接配置
 mqtt:
-  host: localhost
-  port: 1883
-  schema: tcp
+    host: localhost
+    port: 1883
+    schema: tcp
 
-  auth: false
-  username: ""
-  password: ""
+    auth: false
+    username: ""
+    password: ""
 
-  client_id: "hub_1001"
-  clean_start: true
-  keep_alive: 30
+    client_id: "hub_1001"
+    clean_start: true
+    keep_alive: 30
 
-  retry:
-    max_attempts: 3
-    base_delay: 1               # 初始等待时间
+    retry:
+        max_attempts: 3
+        conn_retry_base: 2 # 初始等待时间
 
-  default_qos: 0
+    will:
+        enabled: false
+        qos: 0
+        retain: false
+
+    default_qos: 0
+    max_packet_size: 1048576
 
 # HTTP / WebSocket 服务配置
 http:
-  port: 8080
-  host: "0.0.0.0"
+    port: 8080
+    host: "0.0.0.0"
 
-  # WebSocket 配置
-  websocket:
-    enabled: true
-    path: "/ws"
-    broadcast_buffer: 100        # 广播消息缓冲区大小
+    # WebSocket 配置
+    websocket:
+        enabled: true
+        path: "/ws"
+        broadcast_buffer: 100 # 广播消息缓冲区大小
 
-  # CORS 配置
-  cors:
-    enabled: true
-    allowed_origins:
-      - "*"
+    # CORS 配置
+    cors:
+        enabled: true
+        allowed_origins:
+            - "*"
 
-  # API 配置
-  api:
-    prefix: "/api/v1"
-    timeout: 30                   # 请求超时
+    # API 配置
+    api:
+        prefix: "/api/v1"
+        timeout: 30 # 请求超时
 
 # 日志配置
 log:
-  level: info
-  format: json
-  output: stdout
+    level: info
+    format: json
+    output: stdout

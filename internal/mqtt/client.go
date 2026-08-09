@@ -15,18 +15,7 @@ import (
 func NewClient(info *config.MQTTBrokerInfo) (*paho.Client, error) {
 	var client *paho.Client
 	host := fmt.Sprintf("%s:%d", info.Host, info.Port)
-	if info.Schema == "" {
-		info.Schema = "tcp"
-	}
-	if info.ConnRetryMax == 0 {
-		info.ConnRetryMax = 3
-	}
-	if info.ConnRetryBase == 0 {
-		info.ConnRetryBase = 1
-	}
-	if info.MaxPacketSize == 0 {
-		info.MaxPacketSize = 1024 * 1024
-	}
+
 	for i := 0; i <= info.ConnRetryMax; i++ {
 		// 如果是最后一次重试，返回错误(0,1,2 完毕后 3在这里直接返回 不会进行第四次连接)
 		if i == info.ConnRetryMax {
