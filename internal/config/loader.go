@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -43,6 +45,12 @@ func LoadRobot() (*RobotConfig, error) {
 
 // load 读取 viper 配置并解析到目标结构体
 func load(v *viper.Viper, target any) error {
+	_ = godotenv.Load()
+
+	v.SetEnvPrefix("MQBOT")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+
 	if err := v.ReadInConfig(); err != nil {
 		return fmt.Errorf("读取配置文件失败: %w", err)
 	}
@@ -76,7 +84,7 @@ func setDefaultMQTT(v *viper.Viper) {
 	v.SetDefault("mqtt.port", 1883)
 	v.SetDefault("mqtt.auth", false)
 	v.SetDefault("mqtt.username", "")
-	v.SetDefault("mqtt.password", []byte{})
+	v.SetDefault("mqtt.password", "")
 	v.SetDefault("mqtt.client_id", "")
 	v.SetDefault("mqtt.clean_start", true)
 	v.SetDefault("mqtt.keep_alive", 60)
@@ -120,4 +128,3 @@ func setDefaultRobotBehavior(v *viper.Viper) {
 	v.SetDefault("robot.battery.low_battery_threshold", 20.0)
 	v.SetDefault("robot.battery.full_battery_threshold", 100.0)
 }
-

@@ -21,7 +21,7 @@ type MQTTConfig struct {
 	Port          int         `mapstructure:"port" validate:"min=1,max=65535"`
 	Auth          bool        `mapstructure:"auth"`
 	UserName      string      `mapstructure:"username" validate:"required_if=Auth true"`
-	Password      []byte      `mapstructure:"password" validate:"required_if=Auth true"`
+	Password      string      `mapstructure:"password" validate:"required_if=Auth true"`
 	ClientId      string      `mapstructure:"client_id"`
 	CleanStart    bool        `mapstructure:"clean_start"`
 	KeepAlive     uint16      `mapstructure:"keep_alive" validate:"min=1,max=65535"`
