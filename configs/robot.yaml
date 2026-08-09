@@ -25,7 +25,7 @@ mqtt:
     # 重连策略
     retry:
         # 最大重试次数
-        max_attempts: 3
+        conn_retry_max: 3
         # 重试等待时长
         conn_retry_base: 2
 

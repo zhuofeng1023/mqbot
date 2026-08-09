@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/Drunk6904/mqbot/internal/config"
 	"github.com/Drunk6904/mqbot/internal/http"
 	"github.com/Drunk6904/mqbot/internal/mqtt"
 	"github.com/Drunk6904/mqbot/protocol"
@@ -37,6 +38,12 @@ var server *http.Server
 // Main ==========================================================
 
 func main() {
+
+	// 加载配置
+	cfg, err := config.LoadHub()
+	if err != nil {
+		log.Fatalf("加载配置失败: %v", err)
+	}
 
 	// mqtt 服务
 	c, err := mqtt.NewClient(&mqtt.MQTTBrokerInfo{

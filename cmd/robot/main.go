@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
@@ -16,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Drunk6904/mqbot/internal/config"
 	"github.com/Drunk6904/mqbot/internal/mqtt"
 	"github.com/Drunk6904/mqbot/internal/robot"
 	"github.com/Drunk6904/mqbot/protocol"
@@ -49,17 +48,13 @@ var (
 )
 
 func main() {
-	host := flag.String("server", "localhost", "指定mqtt的broker ip")
-	port := flag.Int("port", 1883, "指定mqtt的broker 端口 ")
-	clientId := flag.String("id", "", "客户端id，不输入则按某规则进行生成")
-	username := flag.String("username", "", "指定用户名")
-	password := flag.String("password", "", "登录密码")
-	speed := flag.Float64("speed", 1.0, "速度")
-	flag.Parse()
 
-	if *clientId == "" {
-		*clientId = fmt.Sprintf("bot_%d", rand.Intn(10000))
+	// 加载配置
+	cfg, err := config.LoadRobot()
+	if err != nil {
+		log.Fatalf("加载配置失败: %v", err)
 	}
+
 	selfBot.ID = *clientId
 	selfBot.Speed = *speed
 	// 创建MQTT客户端

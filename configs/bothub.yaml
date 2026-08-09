@@ -13,8 +13,8 @@ mqtt:
     keep_alive: 30
 
     retry:
-        max_attempts: 3
-        conn_retry_base: 2 # 初始等待时间
+        conn_retry_max: 3
+        conn_retry_base: 2
 
     will:
         enabled: false
