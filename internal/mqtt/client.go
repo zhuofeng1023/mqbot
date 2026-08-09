@@ -7,49 +7,12 @@ import (
 	"net"
 	"time"
 
+	"github.com/Drunk6904/mqbot/internal/config"
 	"github.com/eclipse/paho.golang/paho"
 )
 
-type WillMessage struct {
-	Retain  bool
-	QoS     byte
-	Topic   string
-	Payload []byte
-}
-
-// MQTT代理服务器的连接信息
-type MQTTBrokerInfo struct {
-	// ===== 连接参数 =====
-	Schema   string // 连接协议，如 "tcp"、"ssl" 等
-	Host     string // MQTT代理服务器的主机名或IP地址
-	Port     int    // MQTT代理服务器的端口号
-	ClientId string // 客户端唯一标识符
-
-	// ===== 会话参数 =====
-	CleanStart    bool        // 是否清除历史会话
-	KeepAlive     uint16      // 客户端与服务器的心跳间隔（秒）
-	SessionExpiry uint32      // 会话过期时间
-	Will          WillMessage // 遗嘱消息
-
-	// ===== 认证与安全 =====
-	Auth     bool // 是否认证
-	UserName string
-	Password []byte
-
-	// ===== 消息默认策略 =====
-	DefaultQoS    byte   // 默认 QoS
-	MaxPacketSize uint32 // 限制最大报文大小，防止内存溢出
-
-	// ===== 重连策略 =====
-	ConnRetryMax  int // 最大重试次数
-	ConnRetryBase int // 初始等待时间(秒)
-
-	// ===== 消息回调函数 =====
-	OnPublishReceived func(paho.PublishReceived) (bool, error)
-}
-
 // NewClient 创建 MQTT 客户端
-func NewClient(info *MQTTBrokerInfo) (*paho.Client, error) {
+func NewClient(info *config.MQTTBrokerInfo) (*paho.Client, error) {
 	var client *paho.Client
 	host := fmt.Sprintf("%s:%d", info.Host, info.Port)
 	if info.Schema == "" {
