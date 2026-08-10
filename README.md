@@ -42,10 +42,6 @@ mqbot/
 ├── configs/               # 配置文件
 │   ├── bothub.yaml        # 控制中心配置
 │   └── robot.yaml         # 机器人配置
-├── docs/                  # 开发文档
-│   ├── config-upgrade-guide.md
-│   ├── hub-device-management-guide.md
-│   └── ...
 ├── static/                # Web 前端资源
 │   └── index.html         # 控制台页面（Canvas 可视化）
 ├── go.mod
