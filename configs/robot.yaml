@@ -16,7 +16,7 @@ mqtt:
     keep_alive: 30 # 心跳间隔
     session_expiry: 3600 # 会话过期时间
 
-    # 遗嘱消息（离线时自动上报）
+    # 遗嘱消息（离线时自动上报，topic 和 payload 由代码注入）
     will:
         enabled: true
         qos: 1

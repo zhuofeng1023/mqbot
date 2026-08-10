@@ -63,10 +63,10 @@ func main() {
 		log.Fatalf("订阅状态主题失败\n")
 	}
 	// 启动web服务
-	server = http.NewServer()
+	server = http.NewServer(&cfg.HTTP)
 	server.MqttClient = c
 	go func() {
-		if err = server.Start(cfg.HTTP.Port); err != nil {
+		if err = server.Start(); err != nil {
 			log.Fatalf("启动 web服务失败：%v\n", err)
 		}
 	}()

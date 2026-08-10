@@ -32,12 +32,11 @@ type MQTTConfig struct {
 	Retry         RetryConfig `mapstructure:"retry"`
 }
 
-// 遗嘱消息配置
+// 遗嘱消息配置（元信息，不含 topic 和 payload）
 type WillConfig struct {
-	Enabled bool   `mapstructure:"enabled"`
-	Topic   string `mapstructure:"topic" validate:"required_if=Enabled true"`
-	QoS     byte   `mapstructure:"qos" validate:"oneof=0 1 2"`
-	Retain  bool   `mapstructure:"retain"`
+	Enabled bool `mapstructure:"enabled"`
+	QoS     byte `mapstructure:"qos" validate:"oneof=0 1 2"`
+	Retain  bool `mapstructure:"retain"`
 }
 
 // 重试配置

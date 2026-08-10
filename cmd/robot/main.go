@@ -78,6 +78,7 @@ func main() {
 	// 创建MQTT客户端
 	c, err := mqtt.NewClient(&cfg.MQTT,
 		mqtt.WithHandler(handMsg),
+		mqtt.WithWillTopic(fmt.Sprintf(protocol.StatusTopic, cfg.MQTT.ClientId)),
 		mqtt.WithWillPayload(getStateOffline()),
 	)
 	

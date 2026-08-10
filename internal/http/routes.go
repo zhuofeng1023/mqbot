@@ -9,7 +9,7 @@ import (
 // 注册路由
 func (s *Server) registerRoutes() {
 	s.Router.GET("/ping", s.ping)
-	s.Router.GET("/ws", s.handleWS)
+	s.Router.GET(s.cfg.WebSocket.Path, s.handleWS)
 	s.Router.Static("/static", "./static")
 	s.Router.GET("/", func(ctx *gin.Context) {
 		ctx.File("./static/index.html")

@@ -13,14 +13,23 @@ import (
 
 type clientOptions struct {
 	handler     func(paho.PublishReceived) (bool, error)
+	willTopic   string
 	willPayload []byte
 }
 
 type Option func(*clientOptions)
 
+// WithHandler 设置消息回调
 func WithHandler(h func(paho.PublishReceived) (bool, error)) Option {
 	return func(co *clientOptions) {
 		co.handler = h
+	}
+}
+
+// WithWillTopic 设置遗嘱消息主题
+func WithWillTopic(topic string) Option {
+	return func(co *clientOptions) {
+		co.willTopic = topic
 	}
 }
 
@@ -64,9 +73,9 @@ func NewClient(cfg *config.MQTTConfig, opts ...Option) (*paho.Client, error) {
 				MaximumPacketSize: &cfg.MaxPacketSize,
 			},
 		}
-		if cfg.Will.Topic != "" {
+		if cfg.Will.Enabled && options.willTopic != "" {
 			cp.WillMessage = &paho.WillMessage{
-				Topic:   cfg.Will.Topic,
+				Topic:   options.willTopic,
 				QoS:     cfg.Will.QoS,
 				Retain:  cfg.Will.Retain,
 				Payload: options.willPayload,

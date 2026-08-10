@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Drunk6904/mqbot/internal/config"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -15,19 +17,31 @@ type Server struct {
 	wsConns    map[*websocket.Conn]chan []byte
 	msgBuffer  [][]byte // 消息缓冲区
 	mu         sync.Mutex
+	cfg        *config.HTTPConfig
 }
 
-func NewServer() *Server {
+func NewServer(cfg *config.HTTPConfig) *Server {
 	r := gin.Default()
+
+	// 启用 CORS
+	if cfg.CORS.Enabled {
+		r.Use(cors.New(cors.Config{
+			AllowOrigins: cfg.CORS.AllowedOrigins,
+			AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
+		}))
+	}
+
 	s := &Server{
 		Router:  r,
 		wsConns: make(map[*websocket.Conn]chan []byte),
+		cfg:     cfg,
 	}
 	return s
 }
 
 // 启动服务
-func (s *Server) Start(port int) error {
+func (s *Server) Start() error {
 	s.registerRoutes()
-	return s.Router.Run(fmt.Sprintf(":%d", port))
+	return s.Router.Run(fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port))
 }
