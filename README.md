@@ -1,17 +1,19 @@
 # mqbot
 
-一个用于学习 Go 和 MQTT 实践的小项目。通过模拟"控制中心 ↔ 机器人"的通信场景，练习 MQTT 通信、消息协议设计、WebSocket 实时推送、并发控制等内容。
+一个用于学习 Go 和 MQTT 实践的小项目。通过模拟"控制中心 ↔ 机器人"的通信场景，练习 MQTT 通信、消息协议设计、WebSocket 实时推送、并发控制、配置系统设计等内容。
 
 ## 已实现特性
 
 | 特性 | 说明 |
 |------|------|
-| MQTT 通信 | 支持 MQTT v5，带连接重试、遗嘱消息 |
+| MQTT 通信 | 支持 MQTT v5，带连接重试、遗嘱消息（注入模式） |
 | 状态上报 | 增量上报（仅状态变化时发送，节省流量） |
 | 任务下发 | 移动任务、实时停止、速度调节 |
-| 自动充电 | 电量低于20%自动充电，充到90%停止 |
+| 自动充电 | 电量低于阈值自动充电，充到阈值停止 |
 | WebSocket | 实时推送到浏览器，支持多客户端连接 |
 | Web 控制台 | 单页应用，Canvas 可视化机器人位置 |
+| 配置系统 | viper + pflag + .env，四层覆盖，validator 校验 |
+| CORS 中间件 | 可配置的跨域资源共享 |
 
 ## 项目结构
 
@@ -23,17 +25,27 @@ mqbot/
 │   └── robot/             # 机器人客户端
 │       └── main.go        # 入口：状态上报、任务执行、自动充电
 ├── internal/
+│   ├── config/            # 配置模块
+│   │   ├── config.go      # 配置结构体定义
+│   │   └── loader.go      # 配置加载（viper + pflag + .env + validator）
 │   ├── http/              # HTTP + WebSocket 服务封装
-│   │   ├── server.go      # 服务启动与初始化
+│   │   ├── server.go      # 服务启动与初始化（CORS 中间件）
 │   │   ├── routes.go      # 路由注册
 │   │   └── websocket.go   # WS 连接池、MQTT 消息桥接
-│   ├── mqtt/              # MQTT 客户端封装
+│   ├── mqtt/              # MQTT 客户端封装（函数选项模式）
 │   │   └── client.go      # 连接重试、订阅重试、遗嘱消息
 │   └── robot/             # 机器人业务逻辑
 │       └── move.go        # 移动算法（带取消支持）
 ├── protocol/              # 消息协议定义（与实现无关）
 │   ├── message.go         # 统一信封结构、消息类型、工具函数
 │   └── topic.go           # MQTT Topic 格式常量
+├── configs/               # 配置文件
+│   ├── bothub.yaml        # 控制中心配置
+│   └── robot.yaml         # 机器人配置
+├── docs/                  # 开发文档
+│   ├── config-upgrade-guide.md
+│   ├── hub-device-management-guide.md
+│   └── ...
 ├── static/                # Web 前端资源
 │   └── index.html         # 控制台页面（Canvas 可视化）
 ├── go.mod
@@ -56,6 +68,33 @@ mqbot/
 - **Bothub**：订阅所有机器人状态，通过 WebSocket 广播；接收 Web 指令转发到 MQTT
 - **浏览器**：Canvas 实时绘制机器人位置，发送移动/停止/调速指令
 
+## 配置系统
+
+采用四层覆盖机制，优先级从低到高：
+
+```
+默认值 < 配置文件(YAML) < 环境变量 < 命令行参数(pflag)
+```
+
+环境变量统一使用 `MQBOT_` 前缀，点号（`.`）替换为下划线（`_`），例如：
+- `mqtt.host` → `MQBOT_MQTT_HOST`
+- `http.port` → `MQBOT_HTTP_PORT`
+
+同时支持 `.env` 文件自动加载。
+
+### 配置结构
+
+- **MQTT 配置**：连接参数、认证、会话、遗嘱（元信息）、重试策略
+- **HTTP 配置**：监听地址、WebSocket、CORS、API 前缀
+- **Robot 行为配置**：初始参数、上报阈值、电量策略
+- **日志配置**：级别、格式、输出方式
+
+### 设计要点
+
+- **配置即纯数据**：配置结构体只含可序列化字段，运行时依赖（回调、遗嘱内容）通过函数选项注入
+- **函数选项模式**：`mqtt.NewClient(cfg, WithHandler(h), WithWillTopic(t), WithWillPayload(p))`
+- **Fail-fast 校验**：加载后立即用 validator 校验，配置错误启动即报错
+
 ## 运行方式
 
 ### 前置条件
@@ -66,6 +105,10 @@ mqbot/
 
 ```bash
 go run ./cmd/bothub
+# 指定配置文件
+go run ./cmd/bothub --config configs/bothub.yaml
+# 覆盖部分配置
+go run ./cmd/bothub --mqtt-host localhost --mqtt-port 1883 --http-port 8080
 ```
 
 控制中心启动后访问 `http://localhost:8080` 即可看到监控页面。
@@ -75,19 +118,30 @@ go run ./cmd/bothub
 可启动多个机器人实例，每个会在页面上独立显示：
 
 ```bash
-go run ./cmd/robot -id bot_0001
+go run ./cmd/robot --id bot_0001
+# 指定配置文件
+go run ./cmd/robot --config configs/robot.yaml --id bot_0001
+# 覆盖 MQTT 配置
+go run ./cmd/robot --server localhost --port 1883 --id bot_0001
 ```
 
-**命令行参数：**
+**命令行参数（bothub）：**
 
-| 参数       | 默认值     | 说明                    |
-| ---------- | ---------- | ----------------------- |
-| `-server`  | localhost  | MQTT Broker 地址        |
-| `-port`    | 1883       | MQTT Broker 端口        |
-| `-id`      | 随机生成   | 机器人 ID               |
-| `-speed`   | 1.0        | 移动速度（像素/秒）     |
-| `-username`| 空         | MQTT 用户名（如需认证） |
-| `-password`| 空         | MQTT 密码               |
+| 参数           | 默认值                | 说明                         |
+| -------------- | --------------------- | ---------------------------- |
+| `--config`     | `configs/bothub.yaml` | 配置文件路径                 |
+| `--mqtt-host`  | 配置文件值            | MQTT Broker 地址             |
+| `--mqtt-port`  | 配置文件值            | MQTT Broker 端口             |
+| `--http-port`  | 配置文件值            | HTTP 服务端口                |
+
+**命令行参数（robot）：**
+
+| 参数         | 默认值               | 说明                         |
+| ------------ | -------------------- | ---------------------------- |
+| `--config`   | `configs/robot.yaml` | 配置文件路径                 |
+| `--server`   | 配置文件值           | MQTT Broker 地址             |
+| `--port`     | 配置文件值           | MQTT Broker 端口             |
+| `--id`       | 配置文件值           | 客户端 ID / 机器人 ID        |
 
 ### 完整示例
 
@@ -96,10 +150,10 @@ go run ./cmd/robot -id bot_0001
 go run ./cmd/bothub
 
 # 终端 2：启动机器人 1
-go run ./cmd/robot -id bot_001
+go run ./cmd/robot --id bot_001
 
 # 终端 3：启动机器人 2
-go run ./cmd/robot -id bot_002 -speed 1.5
+go run ./cmd/robot --id bot_002
 ```
 
 访问 `http://localhost:8080`，点击画布即可控制机器人移动。
@@ -144,10 +198,12 @@ go run ./cmd/robot -id bot_002 -speed 1.5
 ```
 
 **上报策略**：并非定时上报，只有以下情况才发送：
-- 电量变化超过 1%
+- 电量变化超过阈值
 - 状态机状态变更
-- 位置变化超过 0.01
-- 速度变化超过 0.1
+- 位置变化超过阈值
+- 速度变化超过阈值
+
+阈值可在配置文件中调整。
 
 ### 任务下发（TaskBody）
 
@@ -171,16 +227,21 @@ go run ./cmd/robot -id bot_002 -speed 1.5
 
 > 💡 指令与任务的区别：任务有ID可追踪，指令无ID即时生效
 
-## 📦 主要依赖
+## 主要依赖
 
 | 库 | 用途 |
 |----|------|
 | [eclipse/paho.golang](https://github.com/eclipse/paho.golang) | MQTT v5 客户端 |
 | [gin-gonic/gin](https://github.com/gin-gonic/gin) | Web 框架 |
 | [gorilla/websocket](https://github.com/gorilla/websocket) | WebSocket 支持 |
+| [spf13/viper](https://github.com/spf13/viper) | 配置管理 |
+| [spf13/pflag](https://github.com/spf13/pflag) | 命令行参数解析 |
+| [joho/godotenv](https://github.com/joho/godotenv) | .env 文件加载 |
+| [go-playground/validator](https://github.com/go-playground/validator) | 配置校验 |
+| [gin-contrib/cors](https://github.com/gin-contrib/cors) | CORS 中间件 |
 | [google/uuid](https://github.com/google/uuid) | UUID 生成 |
 
-## 📚 学习要点
+## 学习要点
 
 这个项目覆盖了以下 Go 和分布式系统知识点：
 
@@ -189,6 +250,7 @@ go run ./cmd/robot -id bot_002 -speed 1.5
 - 遗嘱消息（Will Message）实现离线检测
 - QoS 级别选择与适用场景
 - 订阅/发布的重试机制设计
+- 函数选项模式封装客户端
 
 ### 并发编程
 - `time.Ticker` 定时任务
@@ -196,6 +258,13 @@ go run ./cmd/robot -id bot_002 -speed 1.5
 - `sync.Mutex` 共享资源保护
 - Channel 用于 goroutine 通信
 - WebSocket 连接池管理
+
+### 配置系统
+- viper 配置加载与四层覆盖
+- pflag 命令行参数绑定
+- .env 文件与环境变量
+- validator 结构体校验
+- 配置与运行时依赖分离（注入模式）
 
 ### 协议设计
 - 统一信封结构的扩展性考虑
@@ -208,3 +277,4 @@ go run ./cmd/robot -id bot_002 -speed 1.5
 - Go 标准项目布局
 - 错误处理与日志
 - 信号处理与优雅退出
+- CORS 中间件配置
