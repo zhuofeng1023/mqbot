@@ -37,13 +37,11 @@ type stateSnapshot struct {
 }
 
 var (
-	selfBot         RoBot
-	currentCancel   context.CancelFunc
-	stateMutex      sync.Mutex
-	lastReported    stateSnapshot
-	reportInterval  time.Duration
-	batteryCfg      config.BatteryConfig
-	reportCfg       config.ReportConfig
+	selfBot       RoBot
+	currentCancel context.CancelFunc
+	stateMutex    sync.Mutex
+	lastReported  stateSnapshot
+	cfgHolder     *config.RobotConfigHolder
 )
 
 func main() {
@@ -58,11 +56,16 @@ func main() {
 	v.BindPFlag("mqtt.port", pflag.Lookup("port"))
 	v.BindPFlag("mqtt.client_id", pflag.Lookup("id"))
 
-	// 加载配置
-	cfg, err := config.LoadRobot(v, *configPath)
+	// 加载配置（支持热更新）
+	holder, err := config.LoadRobotWithWatch(v, *configPath)
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
+	cfgHolder = holder
+	// 启动配置文件监听
+	cfgHolder.Watch()
+
+	cfg := cfgHolder.Get()
 
 	// 从配置初始化机器人状态
 	selfBot = RoBot{protocol.StatusBody{
@@ -71,9 +74,7 @@ func main() {
 		State:   protocol.StateIdle,
 		Battery: cfg.Robot.InitialBattery,
 	}}
-	reportInterval = time.Duration(cfg.Robot.Report.IntervalMs) * time.Millisecond
-	batteryCfg = cfg.Robot.Battery
-	reportCfg = cfg.Robot.Report
+	reportInterval := time.Duration(cfg.Robot.Report.IntervalMs) * time.Millisecond
 
 	// 创建MQTT客户端
 	c, err := mqtt.NewClient(&cfg.MQTT,
@@ -120,19 +121,21 @@ func main() {
 	t := time.NewTicker(reportInterval)
 	defer t.Stop()
 	for range t.C {
+		robotCfg := cfgHolder.Get().Robot
+
 		stateMutex.Lock()
 		if selfBot.State == protocol.StateCharging {
-			selfBot.Battery += batteryCfg.ChargingRate
+			selfBot.Battery += robotCfg.Battery.ChargingRate
 		}
-		if selfBot.Battery <= batteryCfg.LowBatteryThreshold && selfBot.State != protocol.StateCharging {
+		if selfBot.Battery <= robotCfg.Battery.LowBatteryThreshold && selfBot.State != protocol.StateCharging {
 			selfBot.State = protocol.StateCharging
 			currentCancel()
 		}
-		if selfBot.State == protocol.StateCharging && selfBot.Battery > batteryCfg.FullBatteryThreshold {
+		if selfBot.State == protocol.StateCharging && selfBot.Battery > robotCfg.Battery.FullBatteryThreshold {
 			selfBot.State = protocol.StateIdle
 		}
 		if selfBot.State == protocol.StateMoving {
-			selfBot.Battery -= batteryCfg.MovingDrain
+			selfBot.Battery -= robotCfg.Battery.MovingDrain
 		}
 		stateMutex.Unlock()
 		sendState(c, botID)
@@ -180,6 +183,8 @@ func sendState(c *paho.Client, botID string) {
 }
 
 func shouldReportLocked() bool {
+	reportCfg := cfgHolder.Get().Robot.Report
+
 	// 电量变化超过阈值即上报
 	if math.Abs(selfBot.Battery-lastReported.Battery) > reportCfg.BatteryThreshold {
 		return true

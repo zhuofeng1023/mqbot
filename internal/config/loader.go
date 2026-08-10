@@ -2,8 +2,12 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
@@ -138,4 +142,93 @@ func setDefaultRobotBehavior(v *viper.Viper) {
 	v.SetDefault("robot.battery.moving_drain", 0.1)
 	v.SetDefault("robot.battery.low_battery_threshold", 20.0)
 	v.SetDefault("robot.battery.full_battery_threshold", 100.0)
+}
+
+// RobotConfigHolder 是线程安全的 RobotConfig 容器，支持热更新。
+type RobotConfigHolder struct {
+	mu            sync.RWMutex
+	cfg           *RobotConfig
+	v             *viper.Viper
+	path          string
+	debounceTimer *time.Timer
+}
+
+// Get 返回当前配置的快照（只读使用）。
+func (h *RobotConfigHolder) Get() *RobotConfig {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.cfg
+}
+
+// Watch 启动配置文件热更新监听。
+// 只热更可热更字段（log / robot.report / robot.battery），
+// 不可热更字段（mqtt / robot.initial_*）的变更会打 warning 提示需重启。
+func (h *RobotConfigHolder) Watch() {
+	h.v.WatchConfig()
+	h.v.OnConfigChange(func(e fsnotify.Event) {
+		log.Printf("[config] 检测到配置文件变更: %s", e.Name)
+
+		// 防抖：短时间内多次事件合并为一次热更
+		if h.debounceTimer != nil {
+			h.debounceTimer.Stop()
+		}
+		h.debounceTimer = time.AfterFunc(200*time.Millisecond, func() {
+			h.reload()
+		})
+	})
+}
+
+// reload 重新加载配置并合并可热更字段。
+func (h *RobotConfigHolder) reload() {
+	var newCfg RobotConfig
+	if err := h.v.Unmarshal(&newCfg); err != nil {
+		log.Printf("[config] 热更失败：解析配置错误: %v", err)
+		return
+	}
+	if err := validate.Struct(&newCfg); err != nil {
+		log.Printf("[config] 热更失败：校验不通过: %v", err)
+		return
+	}
+
+	h.mu.Lock()
+	oldCfg := h.cfg
+
+	// 检测不可热更字段是否变化，变化了打 warning
+	needRestart := false
+	if oldCfg.MQTT != newCfg.MQTT {
+		needRestart = true
+		log.Printf("[config] 警告: mqtt 配置变更需重启生效")
+	}
+	if oldCfg.Robot.InitialSpeed != newCfg.Robot.InitialSpeed ||
+		oldCfg.Robot.InitialBattery != newCfg.Robot.InitialBattery {
+		needRestart = true
+		log.Printf("[config] 警告: robot.initial_* 配置变更需重启生效")
+	}
+
+	// 只合并可热更字段
+	h.cfg.Log = newCfg.Log
+	h.cfg.Robot.Report = newCfg.Robot.Report
+	h.cfg.Robot.Battery = newCfg.Robot.Battery
+
+	h.mu.Unlock()
+
+	if needRestart {
+		log.Printf("[config] 部分配置已热更，需重启的字段未生效")
+	} else {
+		log.Printf("[config] 配置热更完成")
+	}
+}
+
+// LoadRobotWithWatch 加载 robot 配置并返回支持热更新的 holder。
+func LoadRobotWithWatch(v *viper.Viper, configPath string) (*RobotConfigHolder, error) {
+	cfg, err := LoadRobot(v, configPath)
+	if err != nil {
+		return nil, err
+	}
+	holder := &RobotConfigHolder{
+		cfg:  cfg,
+		v:    v,
+		path: configPath,
+	}
+	return holder, nil
 }
