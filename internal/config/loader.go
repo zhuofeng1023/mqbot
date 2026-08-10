@@ -13,7 +13,11 @@ var validate = validator.New(validator.WithRequiredStructEnabled())
 
 // LoadHub 加载 Hub 配置文件并返回 HubConfig 实例
 func LoadHub() (*HubConfig, error) {
-	v := viper.New()
+	return LoadHubWithViper(viper.New())
+}
+
+// LoadHubWithViper 使用已有的 viper 实例加载配置
+func LoadHubWithViper(v *viper.Viper) (*HubConfig, error) {
 	setDefaultHub(v)
 	v.SetConfigName("bothub")
 	v.SetConfigType("yaml")
@@ -28,13 +32,17 @@ func LoadHub() (*HubConfig, error) {
 }
 
 // LoadRobot 加载 Robot 配置文件并返回 RobotConfig 实例
-func LoadRobot() (*RobotConfig, error) {
-	v := viper.New()
+func LoadRobot(v *viper.Viper, configPath string) (*RobotConfig, error) {
+	if configPath == "" {
+		configPath = "configs/robot.yaml"
+	}
+	return LoadRobotWithViper(v, configPath)
+}
+
+// LoadRobotWithViper 使用已有的 viper 实例加载配置
+func LoadRobotWithViper(v *viper.Viper, configPath string) (*RobotConfig, error) {
 	setDefaultRobot(v)
-	v.SetConfigName("robot")
-	v.SetConfigType("yaml")
-	v.AddConfigPath(".")
-	v.AddConfigPath("configs")
+	v.SetConfigFile(configPath)
 
 	var cfg RobotConfig
 	if err := load(v, &cfg); err != nil {

@@ -11,53 +11,81 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 )
 
-// NewClient 创建 MQTT 客户端
-func NewClient(info *config.MQTTBrokerInfo) (*paho.Client, error) {
-	var client *paho.Client
-	host := fmt.Sprintf("%s:%d", info.Host, info.Port)
+type clientOptions struct {
+	handler     func(paho.PublishReceived) (bool, error)
+	willPayload []byte
+}
 
-	for i := 0; i <= info.ConnRetryMax; i++ {
+type Option func(*clientOptions)
+
+func WithHandler(h func(paho.PublishReceived) (bool, error)) Option {
+	return func(co *clientOptions) {
+		co.handler = h
+	}
+}
+
+// WithWillPayload 设置遗嘱消息内容
+func WithWillPayload(wp []byte) Option {
+	return func(co *clientOptions) {
+		co.willPayload = wp
+	}
+}
+
+// NewClient 创建 MQTT 客户端
+func NewClient(cfg *config.MQTTConfig, opts ...Option) (*paho.Client, error) {
+	var client *paho.Client
+	host := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+
+	// 初始化默认选项
+	options := &clientOptions{}
+	// 依次应用所有传入的选项
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	connRetryMax := cfg.Retry.ConnRetryMax
+	for i := 0; i <= connRetryMax; i++ {
 		// 如果是最后一次重试，返回错误(0,1,2 完毕后 3在这里直接返回 不会进行第四次连接)
-		if i == info.ConnRetryMax {
-			return nil, fmt.Errorf("连接失败，已达到最大重试次数 %d", info.ConnRetryMax)
+		if i == connRetryMax {
+			return nil, fmt.Errorf("连接失败，已达到最大重试次数 %d", connRetryMax)
 		}
 
 		cp := &paho.Connect{
-			Username:     info.UserName,
-			Password:     info.Password,
-			UsernameFlag: info.Auth,
-			PasswordFlag: info.Auth,
+			Username:     cfg.UserName,
+			Password:     []byte(cfg.Password),
+			UsernameFlag: cfg.Auth,
+			PasswordFlag: cfg.Auth,
 
-			ClientID:   info.ClientId,
-			KeepAlive:  info.KeepAlive,
-			CleanStart: info.CleanStart,
+			ClientID:   cfg.ClientId,
+			KeepAlive:  cfg.KeepAlive,
+			CleanStart: cfg.CleanStart,
 
 			Properties: &paho.ConnectProperties{
-				MaximumPacketSize: &info.MaxPacketSize,
+				MaximumPacketSize: &cfg.MaxPacketSize,
 			},
 		}
-		if info.Will.Topic != "" {
+		if cfg.Will.Topic != "" {
 			cp.WillMessage = &paho.WillMessage{
-				Topic:   info.Will.Topic,
-				QoS:     info.Will.QoS,
-				Retain:  info.Will.Retain,
-				Payload: info.Will.Payload,
+				Topic:   cfg.Will.Topic,
+				QoS:     cfg.Will.QoS,
+				Retain:  cfg.Will.Retain,
+				Payload: options.willPayload,
 			}
 		}
-		if info.SessionExpiry > 0 {
-			cp.Properties.SessionExpiryInterval = &info.SessionExpiry
+		if cfg.SessionExpiry > 0 {
+			cp.Properties.SessionExpiryInterval = &cfg.SessionExpiry
 		}
 
-		conn, err := net.Dial(info.Schema, host)
+		conn, err := net.Dial(cfg.Schema, host)
 		if err != nil {
-			log.Printf("连接 %s 失败 (尝试 %d/%d): %s\n", host, i+1, info.ConnRetryMax, err)
+			log.Printf("连接 %s 失败 (尝试 %d/%d): %s\n", host, i+1, connRetryMax, err)
 			continue
 		}
 
 		client = paho.NewClient(paho.ClientConfig{
-			ClientID:          info.ClientId,
+			ClientID:          cfg.ClientId,
 			Conn:              conn,
-			OnPublishReceived: []func(paho.PublishReceived) (bool, error){info.OnPublishReceived},
+			OnPublishReceived: []func(paho.PublishReceived) (bool, error){options.handler},
 		})
 
 		cxt, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -65,19 +93,19 @@ func NewClient(info *config.MQTTBrokerInfo) (*paho.Client, error) {
 		cancel()
 
 		if err == nil && ack.ReasonCode < 0x80 {
-			log.Printf("连接成功 (尝试 %d/%d)\n", i+1, info.ConnRetryMax)
+			log.Printf("连接成功 (尝试 %d/%d)\n", i+1, connRetryMax)
 			break
 		} else if err != nil {
-			log.Printf("连接失败(%s) (尝试 %d/%d): %s\n", host, i+1, info.ConnRetryMax, err)
+			log.Printf("连接失败(%s) (尝试 %d/%d): %s\n", host, i+1, connRetryMax, err)
 		} else if ack.ReasonCode >= 0x80 {
-			log.Printf("连接失败 (尝试 %d/%d): 服务器返回错误码 %d - %s\n", i+1, info.ConnRetryMax, ack.ReasonCode, ack.Properties.ReasonString)
+			log.Printf("连接失败 (尝试 %d/%d): 服务器返回错误码 %d - %s\n", i+1, connRetryMax, ack.ReasonCode, ack.Properties.ReasonString)
 		}
 
 		// 关闭 TCP 连接
 		conn.Close()
 		// 等待后再重试，防止触发限流
-		if i < info.ConnRetryMax-1 {
-			waitTime := time.Duration(info.ConnRetryBase) * time.Second
+		if i < connRetryMax-1 {
+			waitTime := time.Duration(cfg.Retry.ConnRetryBase) * time.Second
 			if waitTime == 0 {
 				waitTime = 1 * time.Second
 			}

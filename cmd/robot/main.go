@@ -19,6 +19,8 @@ import (
 	"github.com/Drunk6904/mqbot/internal/robot"
 	"github.com/Drunk6904/mqbot/protocol"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 type RoBot struct {
@@ -48,9 +50,18 @@ var (
 )
 
 func main() {
+	configPath := pflag.String("config", "configs/robot.yaml", "配置文件路径")
+	server := pflag.String("server", "", "MQTT broker 地址（覆盖配置文件）")
+	port := pflag.Int("port", 0, "MQTT broker 端口（覆盖配置文件）")
+	clientId := pflag.String("id", "", "客户端 ID（覆盖配置文件）")
+	pflag.Parse()
 
+	v := viper.New()
+	v.BindPFlag("mqtt.host", pflag.Lookup("server"))
+	v.BindPFlag("mqtt.port", pflag.Lookup("port"))
+	v.BindPFlag("mqtt.client_id", pflag.Lookup("id"))
 	// 加载配置
-	cfg, err := config.LoadRobot()
+	cfg, err := config.LoadRobot(v, *configPath)
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}

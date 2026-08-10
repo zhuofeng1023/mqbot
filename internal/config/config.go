@@ -34,9 +34,10 @@ type MQTTConfig struct {
 
 // 遗嘱消息配置
 type WillConfig struct {
-	Enabled bool `mapstructure:"enabled"`
-	QoS     byte `mapstructure:"qos" validate:"oneof=0 1 2"`
-	Retain  bool `mapstructure:"retain"`
+	Enabled bool   `mapstructure:"enabled"`
+	Topic   string `mapstructure:"topic" validate:"required_if=Enabled true"`
+	QoS     byte   `mapstructure:"qos" validate:"oneof=0 1 2"`
+	Retain  bool   `mapstructure:"retain"`
 }
 
 // 重试配置
