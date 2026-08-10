@@ -13,6 +13,8 @@ import (
 	"github.com/Drunk6904/mqbot/internal/mqtt"
 	"github.com/Drunk6904/mqbot/protocol"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // 类型定义 ======================================================
@@ -25,41 +27,33 @@ type Response struct {
 
 // 常量 ===========================================================
 
-var host = "127.0.0.1"
-var port = 1883
-var clientId = "hub_10001"
-var username = ""
-var password = ""
-
-var webPort = 8080
-
 var server *http.Server
 
 // Main ==========================================================
 
 func main() {
+	// 解析命令行参数
+	configPath := pflag.String("config", "configs/bothub.yaml", "配置文件路径")
+	_ = pflag.String("mqtt-host", "", "MQTT broker 地址（覆盖配置文件）")
+	_ = pflag.Int("mqtt-port", 0, "MQTT broker 端口（覆盖配置文件）")
+	_ = pflag.Int("http-port", 0, "HTTP 服务端口（覆盖配置文件）")
+	pflag.Parse()
+
+	// 绑定 flag 到 viper
+	v := viper.New()
+	v.BindPFlag("mqtt.host", pflag.Lookup("mqtt-host"))
+	v.BindPFlag("mqtt.port", pflag.Lookup("mqtt-port"))
+	v.BindPFlag("http.port", pflag.Lookup("http-port"))
 
 	// 加载配置
-	cfg, err := config.LoadHub()
+	cfg, err := config.LoadHub(v, *configPath)
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
 
 	// mqtt 服务
-	c, err := mqtt.NewClient(&mqtt.MQTTBrokerInfo{
-		Host: host,
-		Port: port,
+	c, err := mqtt.NewClient(&cfg.MQTT)
 
-		ClientId:   clientId,
-		UserName:   username,
-		Password:   []byte(password),
-		CleanStart: true,
-		KeepAlive:  30,
-
-		Auth: false,
-
-		OnPublishReceived: MsgHandler,
-	})
 	if err != nil {
 		log.Fatalf("创建 mqtt 客户端失败：%v\n", err)
 	}
@@ -72,7 +66,7 @@ func main() {
 	server = http.NewServer()
 	server.MqttClient = c
 	go func() {
-		if err = server.Start(webPort); err != nil {
+		if err = server.Start(cfg.HTTP.Port); err != nil {
 			log.Fatalf("启动 web服务失败：%v\n", err)
 		}
 	}()

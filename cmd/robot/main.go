@@ -37,56 +37,50 @@ type stateSnapshot struct {
 }
 
 var (
-	selfBot = RoBot{
-		protocol.StatusBody{
-			Speed:   1,
-			State:   protocol.StateIdle,
-			Battery: 99,
-		}}
-	currentCancel context.CancelFunc
-	stateMutex    sync.Mutex
-
-	lastReported stateSnapshot
+	selfBot         RoBot
+	currentCancel   context.CancelFunc
+	stateMutex      sync.Mutex
+	lastReported    stateSnapshot
+	reportInterval  time.Duration
+	batteryCfg      config.BatteryConfig
+	reportCfg       config.ReportConfig
 )
 
 func main() {
 	configPath := pflag.String("config", "configs/robot.yaml", "配置文件路径")
-	server := pflag.String("server", "", "MQTT broker 地址（覆盖配置文件）")
-	port := pflag.Int("port", 0, "MQTT broker 端口（覆盖配置文件）")
-	clientId := pflag.String("id", "", "客户端 ID（覆盖配置文件）")
+	_ = pflag.String("server", "", "MQTT broker 地址（覆盖配置文件）")
+	_ = pflag.Int("port", 0, "MQTT broker 端口（覆盖配置文件）")
+	_ = pflag.String("id", "", "客户端 ID（覆盖配置文件）")
 	pflag.Parse()
 
 	v := viper.New()
 	v.BindPFlag("mqtt.host", pflag.Lookup("server"))
 	v.BindPFlag("mqtt.port", pflag.Lookup("port"))
 	v.BindPFlag("mqtt.client_id", pflag.Lookup("id"))
+
 	// 加载配置
 	cfg, err := config.LoadRobot(v, *configPath)
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
 
-	selfBot.ID = *clientId
-	selfBot.Speed = *speed
+	// 从配置初始化机器人状态
+	selfBot = RoBot{protocol.StatusBody{
+		ID:      cfg.MQTT.ClientId,
+		Speed:   cfg.Robot.InitialSpeed,
+		State:   protocol.StateIdle,
+		Battery: cfg.Robot.InitialBattery,
+	}}
+	reportInterval = time.Duration(cfg.Robot.Report.IntervalMs) * time.Millisecond
+	batteryCfg = cfg.Robot.Battery
+	reportCfg = cfg.Robot.Report
+
 	// 创建MQTT客户端
-	c, err := mqtt.NewClient(&mqtt.MQTTBrokerInfo{
-		Host:     *host,
-		Port:     *port,
-		ClientId: *clientId,
-		UserName: *username,
-		Password: []byte(*password),
-
-		OnPublishReceived: handMsg,
-
-		CleanStart: true,
-		KeepAlive:  30,
-		Auth:       false,
-		Will: mqtt.WillMessage{
-			QoS:     1,
-			Topic:   fmt.Sprintf(protocol.StatusTopic, *clientId),
-			Payload: getStateOffline(),
-		},
-	})
+	c, err := mqtt.NewClient(&cfg.MQTT,
+		mqtt.WithHandler(handMsg),
+		mqtt.WithWillPayload(getStateOffline()),
+	)
+	
 	// 错误处理
 	if err != nil {
 		log.Fatalf("创建MQTT客户端失败：%s\n", err)
@@ -106,37 +100,41 @@ func main() {
 		os.Exit(0)
 	}()
 
+	botID := selfBot.ID
+
 	// 订阅
-	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.TaskTopic, *clientId), 2)
+	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.TaskTopic, botID), 2)
 	if err != nil {
 		log.Fatalf("订阅频道发生错误：%s\n", err)
 	}
 
-	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.CommandTopic, *clientId), 2)
+	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.CommandTopic, botID), 2)
 	if err != nil {
 		log.Fatalf("订阅频道发生错误：%s\n", err)
 	}
 
 	// 发送连接建立成功消息
-	sendState(c, clientId)
+	sendState(c, botID)
 
-	t := time.NewTicker(100 * time.Millisecond)
+	t := time.NewTicker(reportInterval)
 	defer t.Stop()
 	for range t.C {
+		stateMutex.Lock()
 		if selfBot.State == protocol.StateCharging {
-			selfBot.Battery += 2
+			selfBot.Battery += batteryCfg.ChargingRate
 		}
-		if selfBot.Battery <= 20 && selfBot.State != protocol.StateCharging {
+		if selfBot.Battery <= batteryCfg.LowBatteryThreshold && selfBot.State != protocol.StateCharging {
 			selfBot.State = protocol.StateCharging
 			currentCancel()
 		}
-		if selfBot.State == protocol.StateCharging && selfBot.Battery > 90 {
+		if selfBot.State == protocol.StateCharging && selfBot.Battery > batteryCfg.FullBatteryThreshold {
 			selfBot.State = protocol.StateIdle
 		}
 		if selfBot.State == protocol.StateMoving {
-			selfBot.Battery -= 1
+			selfBot.Battery -= batteryCfg.MovingDrain
 		}
-		sendState(c, clientId)
+		stateMutex.Unlock()
+		sendState(c, botID)
 	}
 }
 
@@ -151,7 +149,7 @@ func getStateOffline() []byte {
 	return msg
 }
 
-func sendState(c *paho.Client, clientId *string) {
+func sendState(c *paho.Client, botID string) {
 	stateMutex.Lock()
 	if !shouldReportLocked() {
 		stateMutex.Unlock()
@@ -168,9 +166,9 @@ func sendState(c *paho.Client, clientId *string) {
 	}
 
 	props := &paho.PublishProperties{}
-	props.User.Add("botId", *clientId)
+	props.User.Add("botId", botID)
 	cp := &paho.Publish{
-		Topic:      fmt.Sprintf(protocol.StatusTopic, *clientId),
+		Topic:      fmt.Sprintf(protocol.StatusTopic, botID),
 		QoS:        0,
 		Payload:    msg,
 		Properties: props,
@@ -181,8 +179,8 @@ func sendState(c *paho.Client, clientId *string) {
 }
 
 func shouldReportLocked() bool {
-	// 电量变化超过1%即上报
-	if math.Abs(selfBot.Battery-lastReported.Battery) > 1.0 {
+	// 电量变化超过阈值即上报
+	if math.Abs(selfBot.Battery-lastReported.Battery) > reportCfg.BatteryThreshold {
 		return true
 	}
 
@@ -191,15 +189,14 @@ func shouldReportLocked() bool {
 		return true
 	}
 
-	// 位置变化超过0.01
-	const epsilon = 0.01
-	if math.Abs(selfBot.X-lastReported.X) > epsilon ||
-		math.Abs(selfBot.Y-lastReported.Y) > epsilon {
+	// 位置变化超过阈值
+	if math.Abs(selfBot.X-lastReported.X) > reportCfg.PositionThreshold ||
+		math.Abs(selfBot.Y-lastReported.Y) > reportCfg.PositionThreshold {
 		return true
 	}
 
-	// 4. 速度变化
-	if math.Abs(selfBot.Speed-lastReported.Speed) > 0.1 {
+	// 速度变化超过阈值
+	if math.Abs(selfBot.Speed-lastReported.Speed) > reportCfg.SpeedThreshold {
 		return true
 	}
 

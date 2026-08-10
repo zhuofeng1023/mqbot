@@ -12,17 +12,20 @@ import (
 var validate = validator.New(validator.WithRequiredStructEnabled())
 
 // LoadHub 加载 Hub 配置文件并返回 HubConfig 实例
-func LoadHub() (*HubConfig, error) {
-	return LoadHubWithViper(viper.New())
+func LoadHub(v *viper.Viper, configPath string) (*HubConfig, error) {
+	if v == nil {
+		v = viper.New()
+	}
+	if configPath == "" {
+		configPath = "configs/bothub.yaml"
+	}
+	return LoadHubWithViper(v, configPath)
 }
 
 // LoadHubWithViper 使用已有的 viper 实例加载配置
-func LoadHubWithViper(v *viper.Viper) (*HubConfig, error) {
+func LoadHubWithViper(v *viper.Viper, configPath string) (*HubConfig, error) {
 	setDefaultHub(v)
-	v.SetConfigName("bothub")
-	v.SetConfigType("yaml")
-	v.AddConfigPath(".")
-	v.AddConfigPath("configs")
+	v.SetConfigFile(configPath)
 
 	var cfg HubConfig
 	if err := load(v, &cfg); err != nil {
