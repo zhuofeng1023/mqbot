@@ -66,6 +66,17 @@ func main() {
 		}
 	}()
 
+	go func() {
+		t := time.NewTicker(5 * time.Second)
+		for range t.C {
+			for _, id := range server.Registry.CheckOffline(30 * time.Second) {
+				log.Printf("[offline] %s 心跳超时，标记离线", id)
+				notify, _ := json.Marshal(protocol.StatusBody{ID: id, State: protocol.StateOffline})
+				server.Broadcast(notify)
+			}
+		}
+	}()
+
 	// 停止
 	ic := make(chan os.Signal, 1)
 	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
@@ -94,11 +105,24 @@ func MsgHandler(pr paho.PublishReceived) (bool, error) {
 }
 
 func handStatus(pr paho.PublishReceived) {
-	// 解析状态数据
+	id := protocol.DeviceIDFromTopic(pr.Packet.Topic)
+
+	// 遗嘱消息：robot 下线，payload 只有 state 没有 id
 	var status protocol.StatusBody
 	json.Unmarshal(pr.Packet.Payload, &status)
+
+	if status.State == protocol.StateOffline {
+		server.Registry.Remove(id)
+		// 构造带 id 的离线通知
+		notify, _ := json.Marshal(protocol.StatusBody{ID: id, State: protocol.StateOffline})
+		server.Broadcast(notify)
+		log.Printf("[offline] %s 遗嘱下线", id)
+		return
+	}
+
+	// 正常状态上报
 	device := &hub.Device{
-		ID:       status.ID,
+		ID:       id,
 		State:    status.State,
 		Battery:  status.Battery,
 		X:        status.X,
@@ -107,10 +131,7 @@ func handStatus(pr paho.PublishReceived) {
 		LastSeen: time.Now(),
 		Online:   true,
 	}
-	// 更新注册表
 	server.Registry.Update(device)
-	// 广播给ws连接
 	server.Broadcast(pr.Packet.Payload)
-
-	log.Printf("[status] %s: %s\n", device.ID, device.State)
+	log.Printf("[status] %s: %s\n", id, device.State)
 }

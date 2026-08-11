@@ -1,6 +1,9 @@
 package hub
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 // DeviceRegistry 线程安全的设备注册表，用于存储和管理设备信息
 type DeviceRegistry struct {
@@ -39,19 +42,34 @@ func (r *DeviceRegistry) Get(id string) (*Device, bool) {
 
 // List 返回注册表中所有设备的列表
 func (r *DeviceRegistry) List() []*Device {
-    r.mu.RLock()
-    defer r.mu.RUnlock()
-    list := make([]*Device, 0, len(r.devices))
-    for _, d := range r.devices {
-        list = append(list, d)
-    }
-    return list
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	list := make([]*Device, 0, len(r.devices))
+	for _, d := range r.devices {
+		list = append(list, d)
+	}
+	return list
 }
 
 // Count 返回注册表中设备的数量
 func (r *DeviceRegistry) Count() int {
-    r.mu.RLock()
-    defer r.mu.RUnlock()
-    return len(r.devices)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.devices)
+}
+
+// CheckOffline 检查并标记超时的离线设备
+func (r *DeviceRegistry) CheckOffline(timeout time.Duration) []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var offline []string
+	now := time.Now()
+	for id, d := range r.devices {
+		if d.Online && now.Sub(d.LastSeen) > timeout {
+			d.Online = false
+			offline = append(offline, id)
+		}
+	}
+	return offline
 }
 
