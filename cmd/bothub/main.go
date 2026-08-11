@@ -1,29 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/Drunk6904/mqbot/internal/config"
 	"github.com/Drunk6904/mqbot/internal/http"
+	"github.com/Drunk6904/mqbot/internal/hub"
 	"github.com/Drunk6904/mqbot/internal/mqtt"
 	"github.com/Drunk6904/mqbot/protocol"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
-
-// 类型定义 ======================================================
-
-type Response struct {
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
-	Data any    `json:"data"`
-}
 
 // 常量 ===========================================================
 
@@ -52,7 +47,7 @@ func main() {
 	}
 
 	// mqtt 服务
-	c, err := mqtt.NewClient(&cfg.MQTT)
+	c, err := mqtt.NewClient(&cfg.MQTT, mqtt.WithHandler(MsgHandler))
 
 	if err != nil {
 		log.Fatalf("创建 mqtt 客户端失败：%v\n", err)
@@ -99,8 +94,23 @@ func MsgHandler(pr paho.PublishReceived) (bool, error) {
 }
 
 func handStatus(pr paho.PublishReceived) {
-	log.Printf("[status] %s", pr.Packet.Payload)
-	if server != nil {
-		server.Broadcast(pr.Packet.Payload)
+	// 解析状态数据
+	var status protocol.StatusBody
+	json.Unmarshal(pr.Packet.Payload, &status)
+	device := &hub.Device{
+		ID:       status.ID,
+		State:    status.State,
+		Battery:  status.Battery,
+		X:        status.X,
+		Y:        status.Y,
+		Speed:    status.Speed,
+		LastSeen: time.Now(),
+		Online:   true,
 	}
+	// 更新注册表
+	server.Registry.Update(device)
+	// 广播给ws连接
+	server.Broadcast(pr.Packet.Payload)
+
+	log.Printf("[status] %s: %s\n", device.ID, device.State)
 }

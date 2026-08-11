@@ -91,10 +91,16 @@ func NewClient(cfg *config.MQTTConfig, opts ...Option) (*paho.Client, error) {
 			continue
 		}
 
+		// 收到消息时调用 handler；未设置则留空切片，消息会被忽略而非 panic
+		var handlers []func(paho.PublishReceived) (bool, error)
+		if options.handler != nil {
+			handlers = []func(paho.PublishReceived) (bool, error){options.handler}
+		}
+
 		client = paho.NewClient(paho.ClientConfig{
 			ClientID:          cfg.ClientId,
 			Conn:              conn,
-			OnPublishReceived: []func(paho.PublishReceived) (bool, error){options.handler},
+			OnPublishReceived: handlers,
 		})
 
 		cxt, cancel := context.WithTimeout(context.Background(), time.Second*10)

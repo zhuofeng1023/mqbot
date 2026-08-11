@@ -19,6 +19,7 @@ import (
 	"github.com/Drunk6904/mqbot/internal/robot"
 	"github.com/Drunk6904/mqbot/protocol"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -37,13 +38,13 @@ type stateSnapshot struct {
 }
 
 var (
-	selfBot         RoBot
-	currentCancel   context.CancelFunc
-	stateMutex      sync.Mutex
-	lastReported    stateSnapshot
-	reportInterval  time.Duration
-	batteryCfg      config.BatteryConfig
-	reportCfg       config.ReportConfig
+	selfBot        RoBot
+	currentCancel  context.CancelFunc
+	stateMutex     sync.Mutex
+	lastReported   stateSnapshot
+	reportInterval time.Duration
+	batteryCfg     config.BatteryConfig
+	reportCfg      config.ReportConfig
 )
 
 func main() {
@@ -63,7 +64,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
-
+	if cfg.MQTT.ClientId == "" {
+		cfg.MQTT.ClientId = uuid.New().String()
+	}
 	// 从配置初始化机器人状态
 	selfBot = RoBot{protocol.StatusBody{
 		ID:      cfg.MQTT.ClientId,
@@ -81,7 +84,7 @@ func main() {
 		mqtt.WithWillTopic(fmt.Sprintf(protocol.StatusTopic, cfg.MQTT.ClientId)),
 		mqtt.WithWillPayload(getStateOffline()),
 	)
-	
+
 	// 错误处理
 	if err != nil {
 		log.Fatalf("创建MQTT客户端失败：%s\n", err)

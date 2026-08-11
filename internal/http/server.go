@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Drunk6904/mqbot/internal/config"
+	"github.com/Drunk6904/mqbot/internal/hub"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,7 @@ import (
 type Server struct {
 	Router     *gin.Engine
 	MqttClient *paho.Client
+	Registry   *hub.DeviceRegistry
 	wsConns    map[*websocket.Conn]chan []byte
 	msgBuffer  [][]byte // 消息缓冲区
 	mu         sync.Mutex
@@ -33,9 +35,10 @@ func NewServer(cfg *config.HTTPConfig) *Server {
 	}
 
 	s := &Server{
-		Router:  r,
-		wsConns: make(map[*websocket.Conn]chan []byte),
-		cfg:     cfg,
+		Router:   r,
+		Registry: hub.NewDeviceRegistry(),
+		wsConns:  make(map[*websocket.Conn]chan []byte),
+		cfg:      cfg,
 	}
 	return s
 }
