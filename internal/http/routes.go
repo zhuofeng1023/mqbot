@@ -15,5 +15,7 @@ func (s *Server) registerRoutes() {
 	{
 		api.GET("/robots/", s.listDevices)
 		api.GET("/robots/:id", s.getDevice)
+		api.POST("/robots/:id/move", s.moveDevice)
+		api.POST("/robots/:id/stop", s.stopDevice)
 	}
 }

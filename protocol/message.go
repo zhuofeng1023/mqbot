@@ -110,7 +110,7 @@ func NewCommandMessage(body CommandBody) CommandMessage {
 	return CommandMessage{Header: newHeader(), Body: body}
 }
 
-// ============ Params 取值工具（避免到处写类型断言）============
+// ============ Params 取值工具 ============
 
 // FloatParam 安全地从 params 取浮点数，取不到返回默认值
 func FloatParam(params map[string]any, key string, def float64) float64 {
