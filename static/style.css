@@ -370,6 +370,31 @@ body::after {
     cursor: not-allowed;
 }
 
+/* -- 停止按钮 -- */
+.btn-stop {
+    width: 100%;
+    margin-top: 8px;
+    padding: 9px 0;
+    background: transparent;
+    border: 1px solid var(--red);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--red);
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+}
+
+.btn-stop:hover {
+    background: rgba(248, 81, 73, 0.15);
+}
+
+.btn-stop:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 /* ========== 滚动条 ========== */
 ::-webkit-scrollbar {
     width: 5px;

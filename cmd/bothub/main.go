@@ -121,6 +121,7 @@ func handStatus(pr paho.PublishReceived) {
 	}
 
 	// 正常状态上报
+	status.ID = id // robot 上报的 payload 不带 id，用 topic 取到的补上
 	device := &hub.Device{
 		ID:       id,
 		State:    status.State,
@@ -132,6 +133,8 @@ func handStatus(pr paho.PublishReceived) {
 		Online:   true,
 	}
 	server.Registry.Update(device)
-	server.Broadcast(pr.Packet.Payload)
+	// 广播补全 id 后的状态，前端靠 id 匹配设备
+	notify, _ := json.Marshal(status)
+	server.Broadcast(notify)
 	log.Printf("[status] %s: %s\n", id, device.State)
 }

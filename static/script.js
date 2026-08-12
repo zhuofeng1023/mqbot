@@ -1,5 +1,8 @@
 /* ========== 状态 ========== */
+const API_BASE = "/api/v1" // 与后端 http.api.prefix 一致
 const robots = {} // { botId: { id, x, y, battery, state, speed, ts } }
+// TODO: 大规模设备(上千台)时，一次性渲染全部 DOM 会卡死。
+//       届时应改为虚拟列表或分页懒加载，当前阶段设备少，暂不处理。
 let selectedBot = null
 let ws = null
 let renderPending = false // 渲染待处理标志
@@ -30,15 +33,38 @@ function connectWS() {
 	ws.onmessage = (e) => {
 		try {
 			const d = JSON.parse(e.data)
-			if (d.id) {
-				robots[d.id] = { ...d, ts: Date.now() }
+			if (!d.id) return
+			// 离线通知：从列表移除
+			if (d.state === "OFFLINE") {
+				delete robots[d.id]
+				if (selectedBot === d.id) selectedBot = null
 				scheduleRender()
+				return
 			}
+			robots[d.id] = { ...d, ts: Date.now() }
+			scheduleRender()
 		} catch (_) {}
 	}
 }
 
 connectWS()
+
+/* ========== HTTP 加载设备列表 ========== */
+async function loadDevices() {
+	try {
+		const res = await fetch(`${API_BASE}/robots/`)
+		const json = await res.json()
+		if (json.code === 0 && Array.isArray(json.data)) {
+			json.data.forEach((d) => {
+				robots[d.id] = { ...d, ts: Date.now() }
+			})
+			scheduleRender()
+		}
+	} catch (e) {
+		console.error("加载设备列表失败", e)
+	}
+}
+loadDevices()
 
 /* ========== 机器人列表 ========== */
 function renderList() {
@@ -109,6 +135,7 @@ function selectBot(id) {
 	selectedBot = id
 	document.getElementById("selectedInfo").textContent = `目标: ${id}`
 	document.getElementById("btnSend").disabled = false
+	document.getElementById("btnStop").disabled = false
 	scheduleRender()
 }
 
@@ -119,20 +146,39 @@ function esc(s) {
 }
 
 /* ========== 任务下发 ========== */
-document.getElementById("btnSend").addEventListener("click", () => {
-	if (!selectedBot || !ws || ws.readyState !== WebSocket.OPEN) return
+// 发送移动指令：走 HTTP 接口 POST /api/v1/robots/:id/move
+document.getElementById("btnSend").addEventListener("click", async () => {
+	if (!selectedBot) return
 
 	const x = document.getElementById("targetX").value
 	const y = document.getElementById("targetY").value
 	if (!x && !y) return
 
-	ws.send(
-		JSON.stringify({
-			bot_id: selectedBot,
-			action: "move_to",
-			params: { x: String(x || "0"), y: String(y || "0") },
-		}),
-	)
+	try {
+		const res = await fetch(`${API_BASE}/robots/${selectedBot}/move`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ x: Number(x) || 0, y: Number(y) || 0 }),
+		})
+		const json = await res.json()
+		if (json.code !== 0) alert(`指令下发失败: ${json.msg}`)
+	} catch (e) {
+		alert(`请求失败: ${e}`)
+	}
+})
+
+// 停止指令：POST /api/v1/robots/:id/stop
+document.getElementById("btnStop").addEventListener("click", async () => {
+	if (!selectedBot) return
+	try {
+		const res = await fetch(`${API_BASE}/robots/${selectedBot}/stop`, {
+			method: "POST",
+		})
+		const json = await res.json()
+		if (json.code !== 0) alert(`停止失败: ${json.msg}`)
+	} catch (e) {
+		alert(`请求失败: ${e}`)
+	}
 })
 
 /* ========== 渲染节流 ========== */
