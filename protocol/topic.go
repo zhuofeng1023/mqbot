@@ -6,6 +6,8 @@ const (
 	StatusTopic  = "robot/%s/status"
 	TaskTopic    = "robot/%s/task"
 	CommandTopic = "robot/%s/command"
+	ReqTopic     = "robot/%s/req"
+	RespTopic    = "robot/%s/resp"
 )
 
 // DeviceIDFromTopic 从 "robot/<id>/<action>" 格式的 topic 提取设备 ID

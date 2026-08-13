@@ -43,6 +43,9 @@ const (
 	ActionStop     = "stop"
 	ActionResume   = "resume"
 	ActionSetSpeed = "set_speed"
+
+	// 查询状态的动作常量
+	ActionGetStatus = "get_status"
 )
 
 // ============ 上行：状态上报 ============
@@ -108,6 +111,39 @@ type CommandMessage struct {
 
 func NewCommandMessage(body CommandBody) CommandMessage {
 	return CommandMessage{Header: newHeader(), Body: body}
+}
+
+// ============== 请求 - 响应 ===============
+
+// RequestBody 请求的业务数据
+type RequestBody struct {
+	Action string         `json:"action"`
+	Params map[string]any `json:"params,omitempty"`
+}
+
+type RequestMessage struct {
+	Header Header      `json:"header"`
+	Body   RequestBody `json:"body"`
+}
+
+func NewRequestMessage(body RequestBody) RequestMessage {
+	return RequestMessage{Header: newHeader(), Body: body}
+}
+
+// ResponseBody 响应的业务数据
+type ResponseBody struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data any    `json:"data,omitempty"`
+}
+
+type ResponseMessage struct {
+	Header Header       `json:"header"`
+	Body   ResponseBody `json:"body"`
+}
+
+func NewResponseMessage(body ResponseBody) ResponseMessage {
+	return ResponseMessage{Header: newHeader(), Body: body}
 }
 
 // ============ Params 取值工具 ============

@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/Drunk6904/mqbot/protocol"
+	"github.com/zhuofeng1023/mqbot/protocol"
 )
 
 func MoveTo(ctx context.Context, s *protocol.StatusBody, x float64, y float64) {

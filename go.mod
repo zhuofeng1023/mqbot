@@ -1,4 +1,4 @@
-module github.com/Drunk6904/mqbot
+module github.com/zhuofeng1023/mqbot
 
 go 1.25.0
 

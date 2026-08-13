@@ -20,7 +20,7 @@ mqtt:
     will:
         enabled: true
         qos: 1
-        retain: false
+        retain: true
 
     # 重连策略
     retry:

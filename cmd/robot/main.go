@@ -14,14 +14,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Drunk6904/mqbot/internal/config"
-	"github.com/Drunk6904/mqbot/internal/mqtt"
-	"github.com/Drunk6904/mqbot/internal/robot"
-	"github.com/Drunk6904/mqbot/protocol"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/zhuofeng1023/mqbot/internal/config"
+	"github.com/zhuofeng1023/mqbot/internal/mqtt"
+	"github.com/zhuofeng1023/mqbot/internal/robot"
+	"github.com/zhuofeng1023/mqbot/protocol"
 )
 
 type RoBot struct {
@@ -45,6 +45,7 @@ var (
 	reportInterval time.Duration
 	batteryCfg     config.BatteryConfig
 	reportCfg      config.ReportConfig
+	mqttClinent    *paho.Client
 )
 
 func main() {
@@ -90,6 +91,8 @@ func main() {
 		log.Fatalf("创建MQTT客户端失败：%s\n", err)
 	}
 
+	mqttClinent = c
+
 	// 注册信号处理函数，用于在程序结束时断开MQTT连接
 	ic := make(chan os.Signal, 1)
 	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
@@ -117,8 +120,13 @@ func main() {
 		log.Fatalf("订阅频道发生错误：%s\n", err)
 	}
 
+	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.ReqTopic, botID), 1)
+	if err != nil {
+		log.Fatalf("订阅频道发生错误：%s\n", err)
+	}
+
 	// 发送连接建立成功消息
-	sendState(c, botID)
+	sendState(c, botID, true)
 
 	t := time.NewTicker(reportInterval)
 	defer t.Stop()
@@ -138,7 +146,7 @@ func main() {
 			selfBot.Battery -= batteryCfg.MovingDrain
 		}
 		stateMutex.Unlock()
-		sendState(c, botID)
+		sendState(c, botID, true)
 	}
 }
 
@@ -153,7 +161,7 @@ func getStateOffline() []byte {
 	return msg
 }
 
-func sendState(c *paho.Client, botID string) {
+func sendState(c *paho.Client, botID string, retain bool) {
 	stateMutex.Lock()
 	if !shouldReportLocked() {
 		stateMutex.Unlock()
@@ -176,6 +184,7 @@ func sendState(c *paho.Client, botID string) {
 		QoS:        0,
 		Payload:    msg,
 		Properties: props,
+		Retain:     retain,
 	}
 	if _, err = c.Publish(context.Background(), cp); err != nil {
 		log.Printf("报备状态时，发布消息发生错误：%s\n", err)
@@ -231,9 +240,59 @@ func handMsg(pr paho.PublishReceived) (bool, error) {
 		handTask(pr)
 	case strings.HasSuffix(pr.Packet.Topic, "/command"):
 		handCommand(pr)
+	case strings.HasSuffix(pr.Packet.Topic, "/req"):
+		handRequest(pr)
 	}
 	return true, nil
 }
+
+// handRequest 处理 bothub 发来的请求，发布响应到 ResponseTopic
+func handRequest(pr paho.PublishReceived) {
+	respTopic := pr.Packet.Properties.ResponseTopic
+	corrData := pr.Packet.Properties.CorrelationData
+
+	var req protocol.RequestMessage
+	if err := json.Unmarshal(corrData, &req); err != nil {
+		log.Printf("解析请求失败：%v", err)
+	}
+
+	var resp protocol.ResponseMessage
+	switch req.Body.Action {
+	case protocol.ActionGetStatus:
+		// 返回当前状态
+		stateMutex.Lock()
+		body := selfBot.StatusBody
+		stateMutex.Unlock()
+		resp = protocol.NewResponseMessage(protocol.ResponseBody{
+			Code: 0,
+			Msg:  "ok",
+			Data: body,
+		})
+	default:
+		resp = protocol.NewResponseMessage(protocol.ResponseBody{
+			Code: 1,
+			Msg:  "未知 action: " + req.Body.Action,
+		})
+	}
+	payload, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("解析json错误：%v", err)
+	}
+
+	// 发布响应
+	_, err = mqttClinent.Publish(context.Background(), &paho.Publish{
+		Topic:   respTopic,
+		QoS:     1,
+		Payload: payload,
+		Properties: &paho.PublishProperties{
+			CorrelationData: corrData,
+		},
+	})
+	if err != nil {
+		log.Printf("发布响应失败：%v", err)
+	}
+}
+
 func handTask(pr paho.PublishReceived) {
 	var data protocol.TaskMessage
 	err := json.Unmarshal(pr.Packet.Payload, &data)

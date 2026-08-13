@@ -10,14 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Drunk6904/mqbot/internal/config"
-	"github.com/Drunk6904/mqbot/internal/http"
-	"github.com/Drunk6904/mqbot/internal/hub"
-	"github.com/Drunk6904/mqbot/internal/mqtt"
-	"github.com/Drunk6904/mqbot/protocol"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/zhuofeng1023/mqbot/internal/config"
+	"github.com/zhuofeng1023/mqbot/internal/http"
+	"github.com/zhuofeng1023/mqbot/internal/hub"
+	"github.com/zhuofeng1023/mqbot/internal/mqtt"
+	"github.com/zhuofeng1023/mqbot/protocol"
 )
 
 // 常量 ===========================================================

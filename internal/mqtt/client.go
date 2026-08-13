@@ -7,8 +7,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/Drunk6904/mqbot/internal/config"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/zhuofeng1023/mqbot/internal/config"
 )
 
 type clientOptions struct {

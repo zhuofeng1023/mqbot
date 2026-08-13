@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Drunk6904/mqbot/internal/config"
-	"github.com/Drunk6904/mqbot/internal/hub"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/zhuofeng1023/mqbot/internal/config"
+	"github.com/zhuofeng1023/mqbot/internal/hub"
 )
 
 type Server struct {
