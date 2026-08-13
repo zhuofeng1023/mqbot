@@ -23,6 +23,7 @@ import (
 // 常量 ===========================================================
 
 var server *http.Server
+var requester *mqtt.Requester
 
 // Main ==========================================================
 
@@ -53,6 +54,13 @@ func main() {
 		log.Fatalf("创建 mqtt 客户端失败：%v\n", err)
 	}
 
+	requester = mqtt.NewRequester(c, 5*time.Second)
+
+	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.RespTopic, "+"), 1)
+	if err != nil {
+		log.Fatalf("订阅响应主题失败：%v\n", err)
+	}
+
 	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.StatusTopic, "+"), 0)
 	if err != nil {
 		log.Fatalf("订阅状态主题失败\n")
@@ -60,6 +68,7 @@ func main() {
 	// 启动web服务
 	server = http.NewServer(&cfg.HTTP)
 	server.MqttClient = c
+	server.Requester = requester
 	go func() {
 		if err = server.Start(); err != nil {
 			log.Fatalf("启动 web服务失败：%v\n", err)
@@ -98,10 +107,17 @@ func MsgHandler(pr paho.PublishReceived) (bool, error) {
 	switch {
 	case strings.HasSuffix(topic, "/status"):
 		handStatus(pr)
+	case strings.HasSuffix(topic, "/resp"):
+		handResponse(pr)
 	default:
 		log.Printf("未知主题：%s\n", topic)
 	}
 	return true, nil
+}
+
+func handResponse(pr paho.PublishReceived) {
+	corrData := string(pr.Packet.Properties.CorrelationData)
+	requester.HandlerResponse(corrData, pr.Packet.Payload)
 }
 
 func handStatus(pr paho.PublishReceived) {

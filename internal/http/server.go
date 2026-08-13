@@ -10,11 +10,13 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/zhuofeng1023/mqbot/internal/config"
 	"github.com/zhuofeng1023/mqbot/internal/hub"
+	"github.com/zhuofeng1023/mqbot/internal/mqtt"
 )
 
 type Server struct {
 	Router     *gin.Engine
 	MqttClient *paho.Client
+	Requester  *mqtt.Requester
 	Registry   *hub.DeviceRegistry
 	wsConns    map[*websocket.Conn]chan []byte
 	msgBuffer  [][]byte // 消息缓冲区

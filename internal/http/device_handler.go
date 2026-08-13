@@ -109,3 +109,41 @@ func (s *Server) publishToDevice(ctx context.Context, topic string, payload []by
 	}
 	return nil
 }
+
+func (s *Server) getDeviceStatus(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	// 构造请求
+	req := protocol.NewRequestMessage(protocol.RequestBody{
+		Action: protocol.ActionGetStatus,
+	})
+	payload, _ := json.Marshal(req)
+
+	// 通过 MQTT 发请求等响应
+	reqTopic := fmt.Sprintf(protocol.ReqTopic, id)
+	respTopic := fmt.Sprintf(protocol.RespTopic, id)
+	respData, err := s.Requester.Request(ctx.Request.Context(), reqTopic, respTopic, payload)
+	if err != nil {
+		ctx.JSON(http.StatusGatewayTimeout, Response{
+			Code: 1,
+			Msg:  "设备响应超时或离线: " + err.Error(),
+		})
+		return
+	}
+
+	// 解析响应
+	var resp protocol.ResponseMessage
+	if err := json.Unmarshal(respData, &resp); err != nil {
+		ctx.JSON(http.StatusInternalServerError, Response{
+			Code: 1,
+			Msg:  "解析响应失败",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, Response{
+		Code: 0,
+		Msg:  "ok",
+		Data: resp.Body.Data,
+	})
+}

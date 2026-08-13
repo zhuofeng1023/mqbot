@@ -249,11 +249,13 @@ func handMsg(pr paho.PublishReceived) (bool, error) {
 // handRequest 处理 bothub 发来的请求，发布响应到 ResponseTopic
 func handRequest(pr paho.PublishReceived) {
 	respTopic := pr.Packet.Properties.ResponseTopic
-	corrData := pr.Packet.Properties.CorrelationData
+	corrData := pr.Packet.Properties.CorrelationData // 原样回传，用于配对
 
+	// 请求消息体在 payload 里，corrData 只是配对用的 uuid
 	var req protocol.RequestMessage
-	if err := json.Unmarshal(corrData, &req); err != nil {
+	if err := json.Unmarshal(pr.Packet.Payload, &req); err != nil {
 		log.Printf("解析请求失败：%v", err)
+		return
 	}
 
 	var resp protocol.ResponseMessage
