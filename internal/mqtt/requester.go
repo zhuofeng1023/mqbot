@@ -10,15 +10,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// 管理 请求-响应模式：发请求，等响应，超时控制
+// Requester 管理请求-响应模式：发请求、等响应、超时控制
 type Requester struct {
 	client  *paho.Client
 	pending map[string]chan []byte // correlation_id 等待响应的 channel
 	mu      sync.Mutex
-	timeout time.Duration // TODO
+	timeout time.Duration // 响应超时时间
 }
 
-// 创建请求管理器
+// NewRequester 创建请求管理器
 func NewRequester(client *paho.Client, timeout time.Duration) *Requester {
 	return &Requester{
 		client:  client,
@@ -67,7 +67,7 @@ func (r *Requester) Request(ctx context.Context, reqTopic, respTopic string, pay
 	}
 }
 
-// 处理接收到的响应，在 MTQQ 回调函数使用
+// HandlerResponse 处理收到的响应，在 MQTT 回调里调用
 func (r *Requester) HandlerResponse(corrID string, payload []byte) {
 	r.mu.Lock()
 	ch, ok := r.pending[corrID]

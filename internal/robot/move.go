@@ -8,6 +8,7 @@ import (
 	"github.com/zhuofeng1023/mqbot/protocol"
 )
 
+// MoveTo 按当前速度沿直线移动到目标坐标 (x, y)，到达或 ctx 取消时返回
 func MoveTo(ctx context.Context, s *protocol.StatusBody, x float64, y float64) {
 	// 记录上一次更新的时间
 	lastUpdate := time.Now()

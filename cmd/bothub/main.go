@@ -54,6 +54,7 @@ func main() {
 		log.Fatalf("创建 mqtt 客户端失败：%v\n", err)
 	}
 
+	// 创建请求管理器
 	requester = mqtt.NewRequester(c, 5*time.Second)
 
 	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.RespTopic, "+"), 1)
@@ -72,17 +73,6 @@ func main() {
 	go func() {
 		if err = server.Start(); err != nil {
 			log.Fatalf("启动 web服务失败：%v\n", err)
-		}
-	}()
-
-	go func() {
-		t := time.NewTicker(5 * time.Second)
-		for range t.C {
-			for _, id := range server.Registry.CheckOffline(30 * time.Second) {
-				log.Printf("[offline] %s 心跳超时，标记离线", id)
-				notify, _ := json.Marshal(protocol.StatusBody{ID: id, State: protocol.StateOffline})
-				server.Broadcast(notify)
-			}
 		}
 	}()
 

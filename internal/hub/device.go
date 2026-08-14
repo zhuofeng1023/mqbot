@@ -2,6 +2,7 @@ package hub
 
 import "time"
 
+// Device 是 hub 侧的设备视图，在 robot 上报的 StatusBody 基础上增加管理字段（LastSeen/Online）
 type Device struct {
 	ID       string    `json:"id"`              // 设备 ID
 	State    string    `json:"state"`           // 状态：IDLE / MOVING / CHARGING / OFFLINE

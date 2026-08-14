@@ -13,17 +13,19 @@ import (
 	"github.com/zhuofeng1023/mqbot/internal/mqtt"
 )
 
+// Server 是 hub 的 HTTP/WebSocket 服务，聚合路由、MQTT 客户端、设备注册表等组件
 type Server struct {
-	Router     *gin.Engine
-	MqttClient *paho.Client
-	Requester  *mqtt.Requester
-	Registry   *hub.DeviceRegistry
-	wsConns    map[*websocket.Conn]chan []byte
-	msgBuffer  [][]byte // 消息缓冲区
-	mu         sync.Mutex
-	cfg        *config.HTTPConfig
+	Router     *gin.Engine                     //  Gin引擎，用于HTTP路由处理
+	MqttClient *paho.Client                    //  MQTT客户端，用于MQTT通信
+	Requester  *mqtt.Requester                 //  MQTT请求响应管理器，用于处理MQTT请求
+	Registry   *hub.DeviceRegistry             //  设备注册表，用于管理设备连接
+	wsConns    map[*websocket.Conn]chan []byte //  WebSocket连接映射，存储连接和对应的通道
+	msgBuffer  [][]byte                        // 消息缓冲区 ，用于临时存储消息
+	mu         sync.Mutex                      //  互斥锁，用于并发控制
+	cfg        *config.HTTPConfig              //  HTTP配置，包含服务器相关配置
 }
 
+// NewServer 创建 HTTP 服务实例，初始化路由、CORS 与设备注册表
 func NewServer(cfg *config.HTTPConfig) *Server {
 	r := gin.Default()
 
@@ -45,7 +47,7 @@ func NewServer(cfg *config.HTTPConfig) *Server {
 	return s
 }
 
-// 启动服务
+// Start 启动 HTTP 服务
 func (s *Server) Start() error {
 	s.registerRoutes()
 	return s.Router.Run(fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port))

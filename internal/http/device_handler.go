@@ -42,6 +42,7 @@ func (s *Server) getDevice(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Code: 0, Msg: "ok", Data: device})
 }
 
+// moveDevice 下发移动指令到指定设备
 func (s *Server) moveDevice(c *gin.Context) {
 	id := c.Param("id")
 
@@ -77,6 +78,7 @@ func (s *Server) moveDevice(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Code: 0, Msg: "指令已下发"})
 }
 
+// stopDevice 下发停止指令到指定设备
 func (s *Server) stopDevice(c *gin.Context) {
 	id := c.Param("id")
 
@@ -110,6 +112,7 @@ func (s *Server) publishToDevice(ctx context.Context, topic string, payload []by
 	return nil
 }
 
+// getDeviceStatus 通过 MQTT 请求-响应查询设备实时状态
 func (s *Server) getDeviceStatus(ctx *gin.Context) {
 	id := ctx.Param("id")
 

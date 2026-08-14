@@ -17,6 +17,7 @@ type clientOptions struct {
 	willPayload []byte
 }
 
+// Option 配置 MQTT 客户端的选项函数
 type Option func(*clientOptions)
 
 // WithHandler 设置消息回调

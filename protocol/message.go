@@ -81,6 +81,7 @@ type TaskBody struct {
 	Priority string         `json:"priority"`
 }
 
+// TaskMessage 完整的任务消息信封
 type TaskMessage struct {
 	Header Header   `json:"header"`
 	Body   TaskBody `json:"body"`
@@ -96,7 +97,7 @@ func NewTaskMessage(body TaskBody) TaskMessage {
 	return TaskMessage{Header: newHeader(), Body: body}
 }
 
-// ============ 下行：实时指令 ============
+// ============ 实时指令 ============
 
 // CommandBody 指令的业务数据
 type CommandBody struct {
@@ -104,6 +105,7 @@ type CommandBody struct {
 	Params map[string]any `json:"params,omitempty"`
 }
 
+// CommandMessage 完整的指令消息信封
 type CommandMessage struct {
 	Header Header      `json:"header"`
 	Body   CommandBody `json:"body"`
@@ -121,6 +123,7 @@ type RequestBody struct {
 	Params map[string]any `json:"params,omitempty"`
 }
 
+// RequestMessage 请求消息信封
 type RequestMessage struct {
 	Header Header      `json:"header"`
 	Body   RequestBody `json:"body"`
@@ -137,6 +140,7 @@ type ResponseBody struct {
 	Data any    `json:"data,omitempty"`
 }
 
+// ResponseMessage 响应消息信封
 type ResponseMessage struct {
 	Header Header       `json:"header"`
 	Body   ResponseBody `json:"body"`
