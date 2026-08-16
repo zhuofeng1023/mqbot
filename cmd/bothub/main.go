@@ -111,6 +111,20 @@ func handResponse(pr paho.PublishReceived) {
 }
 
 func handStatus(pr paho.PublishReceived) {
+	if server == nil {
+		// 等待初始化完成
+		deadline := time.Now().Add(100 * time.Millisecond)
+		for time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond) // 每 10ms 检查一次
+			if server != nil {
+				break // 初始化完成了，跳出循环继续执行
+			}
+		}
+	}
+	if server == nil {
+		log.Printf("[warn] Server 未初始化，丢弃状态消息。Topic: %s", pr.Packet.Topic)
+		return
+	}
 	id := protocol.DeviceIDFromTopic(pr.Packet.Topic)
 
 	// 遗嘱消息：robot 下线，payload 只有 state 没有 id

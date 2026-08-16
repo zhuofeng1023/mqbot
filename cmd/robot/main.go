@@ -39,13 +39,13 @@ type stateSnapshot struct {
 
 var (
 	selfBot        RoBot
-	currentCancel  context.CancelFunc
-	stateMutex     sync.Mutex
-	lastReported   stateSnapshot
-	reportInterval time.Duration
-	batteryCfg     config.BatteryConfig
-	reportCfg      config.ReportConfig
-	mqttClinent    *paho.Client
+	currentCancel  context.CancelFunc   //  currentCancel 用于控制当前上下文的取消函数
+	stateMutex     sync.Mutex           //  stateMutex 用于保护状态访问的互斥锁
+	lastReported   stateSnapshot        //  lastReported 存储最近一次报告的状态快照
+	reportInterval time.Duration        //  reportInterval 定义状态报告的时间间隔
+	batteryCfg     config.BatteryConfig //  batteryCfg 存储电池相关的配置信息
+	reportCfg      config.ReportConfig  //  reportCfg 存储报告相关的配置信息
+	mqttClinent    *paho.Client         //  mqttClinent 表示MQTT客户端实例，用于MQTT通信
 )
 
 func main() {
@@ -85,8 +85,6 @@ func main() {
 		mqtt.WithWillTopic(fmt.Sprintf(protocol.StatusTopic, cfg.MQTT.ClientId)),
 		mqtt.WithWillPayload(getStateOffline()),
 	)
-
-	// 错误处理
 	if err != nil {
 		log.Fatalf("创建MQTT客户端失败：%s\n", err)
 	}
@@ -99,6 +97,11 @@ func main() {
 	go func() {
 		<-ic
 		if c != nil {
+			// 发送下线状态 并断开连接
+			stateMutex.Lock()
+			selfBot.State = protocol.StateOffline
+			stateMutex.Unlock()
+			sendState(c, c.ClientID(), true)
 			err := c.Disconnect(&paho.Disconnect{ReasonCode: 0})
 			if err != nil {
 				log.Fatalf("断开连接时发生错误：%s", err)
@@ -150,6 +153,7 @@ func main() {
 	}
 }
 
+// getStateOffline 生成离线状态的JSON消息
 func getStateOffline() []byte {
 	msg, err := json.Marshal(protocol.StatusBody{
 		State: protocol.StateOffline,
@@ -161,6 +165,7 @@ func getStateOffline() []byte {
 	return msg
 }
 
+// sendState 发送机器人状态到MQTT
 func sendState(c *paho.Client, botID string, retain bool) {
 	stateMutex.Lock()
 	if !shouldReportLocked() {
@@ -179,6 +184,9 @@ func sendState(c *paho.Client, botID string, retain bool) {
 
 	props := &paho.PublishProperties{}
 	props.User.Add("botId", botID)
+	// 保留消息过期时间
+	expiry := uint32(60)
+	props.MessageExpiry = &expiry
 	cp := &paho.Publish{
 		Topic:      fmt.Sprintf(protocol.StatusTopic, botID),
 		QoS:        0,
@@ -191,6 +199,7 @@ func sendState(c *paho.Client, botID string, retain bool) {
 	}
 }
 
+// shouldReportLocked 判断是否需要上报状态
 func shouldReportLocked() bool {
 	// 电量变化超过阈值即上报
 	if math.Abs(selfBot.Battery-lastReported.Battery) > reportCfg.BatteryThreshold {
@@ -216,6 +225,7 @@ func shouldReportLocked() bool {
 	return false
 }
 
+// updateLastReportedLocked 更新最后上报的状态快照
 func updateLastReportedLocked() {
 	lastReported = stateSnapshot{
 		Battery: selfBot.Battery,
@@ -233,7 +243,7 @@ func updateLastReportedLocked() {
 // 	return hex.EncodeToString(hashBytes)
 // }
 
-// 回调函数，对接收的消息进行处理
+// handMsg 处理接收到的MQTT消息
 func handMsg(pr paho.PublishReceived) (bool, error) {
 	switch {
 	case strings.HasSuffix(pr.Packet.Topic, "/task"):
@@ -295,6 +305,7 @@ func handRequest(pr paho.PublishReceived) {
 	}
 }
 
+// handTask 处理任务消息
 func handTask(pr paho.PublishReceived) {
 	var data protocol.TaskMessage
 	err := json.Unmarshal(pr.Packet.Payload, &data)
@@ -322,6 +333,7 @@ func handCommand(pr paho.PublishReceived) {
 	}
 }
 
+// handleMoveTo 处理移动到指定位置的任务
 func handleMoveTo(data protocol.TaskMessage) {
 	stateMutex.Lock()
 

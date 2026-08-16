@@ -85,7 +85,10 @@ func NewClient(cfg *config.MQTTConfig, opts ...Option) (*paho.Client, error) {
 		if cfg.SessionExpiry > 0 {
 			cp.Properties.SessionExpiryInterval = &cfg.SessionExpiry
 		}
-
+		expiry := uint32(3600)
+		cp.WillProperties = &paho.WillProperties{
+			MessageExpiry: &expiry,
+		}
 		conn, err := net.Dial(cfg.Schema, host)
 		if err != nil {
 			log.Printf("连接 %s 失败 (尝试 %d/%d): %s\n", host, i+1, connRetryMax, err)
@@ -141,7 +144,7 @@ func SubscribeTopic(c *paho.Client, topic string, qos byte) error {
 	max := 3
 	i := 1
 
-	for range t.C {
+	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 		ps, err := c.Subscribe(ctx, &paho.Subscribe{
@@ -149,6 +152,7 @@ func SubscribeTopic(c *paho.Client, topic string, qos byte) error {
 				{Topic: topic, QoS: qos},
 			},
 		})
+		cancel()
 
 		if err != nil {
 			log.Printf("订阅 %s 失败 (尝试 %d/%d): %v", topic, i, max, err)
@@ -156,7 +160,6 @@ func SubscribeTopic(c *paho.Client, topic string, qos byte) error {
 			log.Printf("订阅 %s 失败 (尝试 %d/%d): 未收到响应", topic, i, max)
 		} else if ps.Reasons[0] < 0x80 {
 			log.Printf("订阅 %s 成功 (尝试 %d/%d)", topic, i, max)
-			cancel()
 			return nil
 		} else {
 			reason := "未知错误"
@@ -168,11 +171,10 @@ func SubscribeTopic(c *paho.Client, topic string, qos byte) error {
 		}
 
 		if i >= max {
-			cancel()
 			return fmt.Errorf("订阅 %s 失败: 已达到最大重试次数 %d", topic, max)
 		}
-		cancel()
 		i++
+
+		<-t.C
 	}
-	return fmt.Errorf("订阅 %s 失败: ticker已停止", topic)
 }
