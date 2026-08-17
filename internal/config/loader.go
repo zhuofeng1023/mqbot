@@ -81,6 +81,7 @@ func setDefaultHub(v *viper.Viper) {
 	setDefaultMQTT(v)
 	setDefaultHTTP(v)
 	setDefaultLog(v)
+	setDefaultDatabase(v)
 }
 
 func setDefaultRobot(v *viper.Viper) {
@@ -138,4 +139,16 @@ func setDefaultRobotBehavior(v *viper.Viper) {
 	v.SetDefault("robot.battery.moving_drain", 0.1)
 	v.SetDefault("robot.battery.low_battery_threshold", 20.0)
 	v.SetDefault("robot.battery.full_battery_threshold", 100.0)
+}
+
+func setDefaultDatabase(v *viper.Viper) {
+	v.SetDefault("database.enabled", false)
+	v.SetDefault("database.host", "127.0.0.1")
+	v.SetDefault("database.port", 6041)
+	v.SetDefault("database.user", "root")
+	v.SetDefault("database.password", "taosdata")
+	v.SetDefault("database.dbname", "mqbot")
+	v.SetDefault("database.write.batch_size", 500)
+	v.SetDefault("database.write.flush_interval_ms", 1000)
+	v.SetDefault("database.write.channel_cap", 10000)
 }

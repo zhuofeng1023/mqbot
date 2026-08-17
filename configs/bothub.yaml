@@ -46,6 +46,20 @@ http:
         prefix: "/api/v1"
         timeout: 30 # 请求超时
 
+# TDengine 时序数据库配置
+database:
+    enabled: true
+    host: 127.0.0.1 # 改成远程服务器 IP 即远程连接
+    port: 6041 # taosAdapter REST 端口
+    user: root
+    password: taosdata
+    dbname: mqbot
+
+    write:
+        batch_size: 500 # 攒够 500 条刷一次
+        flush_interval_ms: 1000 # 或最多 1 秒刷一次，先到先触发
+        channel_cap: 10000 # 内存缓冲 1 万条，约等于 1 秒 1 万条的削峰能力
+
 # 日志配置
 log:
     level: info

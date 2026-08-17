@@ -2,9 +2,10 @@ package config
 
 // 中心服务配置
 type HubConfig struct {
-	MQTT MQTTConfig `mapstructure:"mqtt"`
-	HTTP HTTPConfig `mapstructure:"http"`
-	Log  LogConfig  `mapstructure:"log"`
+	MQTT     MQTTConfig     `mapstructure:"mqtt"`
+	HTTP     HTTPConfig     `mapstructure:"http"`
+	Log      LogConfig      `mapstructure:"log"`
+	Database DatabaseConfig `mapstructure:"database"`
 }
 
 // 机器人配置
@@ -100,4 +101,22 @@ type BatteryConfig struct {
 	MovingDrain          float64 `mapstructure:"moving_drain" validate:"min=0,max=100"`
 	LowBatteryThreshold  float64 `mapstructure:"low_battery_threshold" validate:"min=0,max=100"`
 	FullBatteryThreshold float64 `mapstructure:"full_battery_threshold" validate:"min=0,max=100"`
+}
+
+// TDengine 时序数据库配置
+type DatabaseConfig struct {
+	Enabled  bool          `mapstructure:"enabled"` // 总开关：false 时 hub 完全不碰数据库
+	Host     string        `mapstructure:"host" validate:"required_if=Enabled true"`
+	Port     int           `mapstructure:"port" validate:"min=1,max=65535"`
+	User     string        `mapstructure:"user"`
+	Password string        `mapstructure:"password"`
+	DBName   string        `mapstructure:"dbname"`
+	Write    DBWriteConfig `mapstructure:"write"`
+}
+
+// 批量写入配置
+type DBWriteConfig struct {
+	BatchSize       int `mapstructure:"batch_size" validate:"min=1"`          // 攒够多少条触发刷写
+	FlushIntervalMs int `mapstructure:"flush_interval_ms" validate:"min=100"` // 最长攒批时间
+	ChannelCap      int `mapstructure:"channel_cap" validate:"min=1"`         // 内存缓冲容量，满了丢弃
 }
