@@ -71,6 +71,7 @@ func (s *Server) addWSConn(conn *websocket.Conn) {
 	go s.writePump(conn, send)
 
 	s.wsConns[conn] = send
+	s.WsClients.Add(1)
 }
 
 func (s *Server) removeWSConn(conn *websocket.Conn) {
@@ -80,6 +81,7 @@ func (s *Server) removeWSConn(conn *websocket.Conn) {
 	send := s.wsConns[conn]
 	close(send)
 	delete(s.wsConns, conn)
+	s.WsClients.Add(-1)
 }
 
 func (s *Server) handleWSMessage(msg []byte) {

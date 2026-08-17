@@ -62,7 +62,7 @@ func main() {
 		log.Fatalf("订阅响应主题失败：%v\n", err)
 	}
 
-	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.StatusTopic, "+"), 0)
+	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.StatusTopic, "+"), 1)
 	if err != nil {
 		log.Fatalf("订阅状态主题失败\n")
 	}
@@ -127,6 +127,8 @@ func handStatus(pr paho.PublishReceived) {
 	}
 	id := protocol.DeviceIDFromTopic(pr.Packet.Topic)
 
+	server.MsgCount.Add(1)
+
 	// 遗嘱消息：robot 下线，payload 只有 state 没有 id
 	var status protocol.StatusBody
 	json.Unmarshal(pr.Packet.Payload, &status)
@@ -156,5 +158,5 @@ func handStatus(pr paho.PublishReceived) {
 	// 广播补全 id 后的状态，前端靠 id 匹配设备
 	notify, _ := json.Marshal(status)
 	server.Broadcast(notify)
-	log.Printf("[status] %s: %s\n", id, device.State)
+	// log.Printf("[status] %s: %s\n", id, device.State)
 }
