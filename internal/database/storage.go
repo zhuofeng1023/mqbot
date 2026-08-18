@@ -8,14 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	_ "github.com/taosdata/driver-go/v3/taosRestful" // 注册驱动，匿名导入
+	_ "github.com/taosdata/driver-go/v3/taosRestful"
 	"github.com/zhuofeng1023/mqbot/internal/config"
 )
 
 // StatusPoint 一条待落盘的状态数据点
 type StatusPoint struct {
 	RobotID string
-	TS      int64 // 毫秒时间戳，handStatus 收到消息时取 time.Now().UnixMilli()
+	TS      int64 // 时间戳
 	State   string
 	Battery float64
 	X, Y    float64
@@ -26,8 +26,6 @@ type Storage struct {
 	db        *sql.DB
 	writer    *Writer
 	Dropped   atomic.Int64 // 因 channel 满被丢弃的总数
-	WriteErrs atomic.Int64 // 刷写失败次数
-	Written   atomic.Int64 // 成功落盘条数
 	cfg       config.DatabaseConfig
 }
 
