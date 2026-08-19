@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/zhuofeng1023/mqbot/internal/config"
+	"github.com/zhuofeng1023/mqbot/internal/database"
 	"github.com/zhuofeng1023/mqbot/internal/http"
 	"github.com/zhuofeng1023/mqbot/internal/hub"
 	"github.com/zhuofeng1023/mqbot/internal/mqtt"
@@ -24,6 +25,7 @@ import (
 
 var server *http.Server
 var requester *mqtt.Requester
+var storage *database.Storage
 
 // Main ==========================================================
 
@@ -46,6 +48,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
+
+	// 初始化数据库连接
+	_storage, err := database.NewStorage(cfg.Database)
+	if err != nil {
+		log.Fatalf("连接数据库出错: %s\n", err)
+	}
+	storage = _storage
 
 	// mqtt 服务
 	c, err := mqtt.NewClient(&cfg.MQTT, mqtt.WithHandler(MsgHandler))
@@ -154,6 +163,15 @@ func handStatus(pr paho.PublishReceived) {
 		LastSeen: time.Now(),
 		Online:   true,
 	}
+	storage.Write(database.StatusPoint{
+		RobotID: id,
+		TS:      time.Now().UnixMilli(),
+		State:   status.State,
+		Battery: status.Battery,
+		X:       status.X,
+		Y:       status.Y,
+		Speed:   status.Speed,
+	})
 	server.Registry.Update(device)
 	// 广播补全 id 后的状态，前端靠 id 匹配设备
 	notify, _ := json.Marshal(status)

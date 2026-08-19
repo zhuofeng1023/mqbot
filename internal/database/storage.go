@@ -29,6 +29,7 @@ type Storage struct {
 	cfg       config.DatabaseConfig
 }
 
+// 创建 Storage
 func NewStorage(cfg config.DatabaseConfig) (*Storage, error) {
 	dsn := fmt.Sprintf("%s:%s@http(%s:%d)/%s",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
@@ -59,32 +60,36 @@ func NewStorage(cfg config.DatabaseConfig) (*Storage, error) {
 	return s, nil
 }
 
+// 初始化数据库： 创建数据库 & 创建超级表
 func (s *Storage) initDatabase(ctx context.Context) error {
 	dbName := "MQBOT"
 
+	// 创建数据库 (如果不存在)
 	createDB := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s KEEP 3650 DAYS 10 BLOCKS 16;", dbName)
 	if _, err := s.db.ExecContext(ctx, createDB); err != nil {
-		return err
+		return fmt.Errorf("创建数据库失败: %w", err)
 	}
 
-	useDB := fmt.Sprintf("USE %s;", dbName)
-	if _, err := s.db.ExecContext(ctx, useDB); err != nil {
-		return err
-	}
-
-	createSTable := `CREATE STABLE IF NOT EXISTS robot_status (
+	// 创建超级表 (如果不存在)
+	createSTable := fmt.Sprintf(`CREATE STABLE IF NOT EXISTS %s.robot_status (
 		ts TIMESTAMP, state BINARY(20), battery FLOAT, x DOUBLE, y DOUBLE, speed FLOAT
-	) TAGS (robot_id BINARY(50));`
-	_, err := s.db.ExecContext(ctx, createSTable)
-	return err
+	) TAGS (robot_id BINARY(50));`, dbName)
+	
+	if _, err := s.db.ExecContext(ctx, createSTable); err != nil {
+		return fmt.Errorf("创建超级表失败: %w", err)
+	}
+
+	return nil
 }
 
+// 向数据库写入数据
 func (s *Storage) Write(p StatusPoint) {
 	if s.writer != nil {
 		s.writer.Write(p)
 	}
 }
 
+// 关闭数据库实例
 func (s *Storage) Close() error {
 	if s.writer != nil {
 		s.writer.Close()

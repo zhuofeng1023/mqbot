@@ -38,6 +38,7 @@ func NewWriter(db *sql.DB, cfg *config.DBWriteConfig) *Writer {
 	}
 }
 
+// 添加数据到队列 后续批量写入数据库
 func (w *Writer) Write(p StatusPoint) {
 	select {
 	case w.ch <- p:
@@ -46,6 +47,7 @@ func (w *Writer) Write(p StatusPoint) {
 	}
 }
 
+// 开始运行写入 按照配置文件配置的时间间隔 批量写入数据
 func (w *Writer) Run() {
 	w.wg.Add(1)
 	go func() {
@@ -107,6 +109,7 @@ func (w *Writer) Run() {
 	}()
 }
 
+// 插入数据到数据库 将切片内的数据批量插入数据表
 func (w *Writer) flush(points []StatusPoint) {
 	if len(points) == 0 {
 		return
@@ -149,7 +152,7 @@ func (w *Writer) flush(points []StatusPoint) {
 func (w *Writer) Close() {
 	w.closed.Do(func() {
 		close(w.done)
-		w.wg.Wait() // 修复：等待后台协程结束
+		w.wg.Wait() // 等待后台协程结束
 	})
 }
 
