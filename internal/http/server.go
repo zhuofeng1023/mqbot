@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/zhuofeng1023/mqbot/internal/config"
+	"github.com/zhuofeng1023/mqbot/internal/database"
 	"github.com/zhuofeng1023/mqbot/internal/hub"
 	"github.com/zhuofeng1023/mqbot/internal/mqtt"
 )
@@ -30,6 +31,8 @@ type Server struct {
 	MsgCount  atomic.Int64 // 收到消息总数
 	WsClients atomic.Int64 // WS 连接数
 	startTime time.Time    // 启动时间
+
+	Storage *database.Storage
 }
 
 // NewServer 创建 HTTP 服务实例，初始化路由、CORS 与设备注册表
@@ -46,10 +49,10 @@ func NewServer(cfg *config.HTTPConfig) *Server {
 	}
 
 	s := &Server{
-		Router:   r,
-		Registry: hub.NewDeviceRegistry(),
-		wsConns:  make(map[*websocket.Conn]chan []byte),
-		cfg:      cfg,
+		Router:    r,
+		Registry:  hub.NewDeviceRegistry(),
+		wsConns:   make(map[*websocket.Conn]chan []byte),
+		cfg:       cfg,
 		startTime: time.Now(),
 	}
 	return s
