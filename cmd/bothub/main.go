@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -56,8 +57,12 @@ func main() {
 	}
 	storage = _storage
 
-	// mqtt 服务
-	c, err := mqtt.NewClient(&cfg.MQTT, mqtt.WithHandler(MsgHandler))
+	// mqtt 服务：autopaho 自动重连客户端，断线后自动恢复订阅
+	c, err := mqtt.NewAutoClient(context.Background(), &cfg.MQTT,
+		mqtt.WithHandler(MsgHandler),
+		mqtt.WithSubscriptions(fmt.Sprintf(protocol.RespTopic, "+"), 1),
+		mqtt.WithSubscriptions(fmt.Sprintf(protocol.StatusTopic, "+"), 1),
+	)
 
 	if err != nil {
 		log.Fatalf("创建 mqtt 客户端失败：%v\n", err)
@@ -65,16 +70,6 @@ func main() {
 
 	// 创建请求管理器
 	requester = mqtt.NewRequester(c, 5*time.Second)
-
-	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.RespTopic, "+"), 1)
-	if err != nil {
-		log.Fatalf("订阅响应主题失败：%v\n", err)
-	}
-
-	err = mqtt.SubscribeTopic(c, fmt.Sprintf(protocol.StatusTopic, "+"), 1)
-	if err != nil {
-		log.Fatalf("订阅状态主题失败\n")
-	}
 	// 启动web服务
 	server = http.NewServer(&cfg.HTTP)
 	server.MqttClient = c
@@ -90,8 +85,9 @@ func main() {
 	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
 	<-ic
 	if c != nil {
-		err := c.Disconnect(&paho.Disconnect{ReasonCode: 0})
-		if err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := c.Disconnect(ctx); err != nil {
 			log.Fatalf("发生错误: %s\n", err)
 		}
 	}

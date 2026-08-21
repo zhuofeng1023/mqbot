@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/eclipse/paho.golang/paho"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -22,7 +21,7 @@ type Server struct {
 	Router  *gin.Engine                     //  Gin引擎，用于HTTP路由处理
 	wsConns map[*websocket.Conn]chan []byte //  WebSocket连接映射，存储连接和对应的通道
 
-	MqttClient *paho.Client        //  MQTT客户端，用于MQTT通信
+	MqttClient mqtt.Publisher       //  MQTT客户端，用于MQTT通信（实现 Publish 的连接管理器）
 	Requester  *mqtt.Requester     //  MQTT请求响应管理器，用于处理MQTT请求
 	Registry   *hub.DeviceRegistry //  设备注册表，用于管理设备连接
 	msgBuffer  [][]byte            // 消息缓冲区 ，用于临时存储消息

@@ -5,16 +5,24 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"time"
 
+	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/zhuofeng1023/mqbot/internal/config"
 )
+
+// Publisher 抽象 MQTT 发布能力：*paho.Client 与 autopaho 连接管理器都满足该接口，
+type Publisher interface {
+	Publish(ctx context.Context, p *paho.Publish) (*paho.PublishResponse, error)
+}
 
 type clientOptions struct {
 	handler     func(paho.PublishReceived) (bool, error)
 	willTopic   string
 	willPayload []byte
+	subscriptions []paho.SubscribeOptions // 连接成功后需恢复的订阅
 }
 
 // Option 配置 MQTT 客户端的选项函数
@@ -38,6 +46,13 @@ func WithWillTopic(topic string) Option {
 func WithWillPayload(wp []byte) Option {
 	return func(co *clientOptions) {
 		co.willPayload = wp
+	}
+}
+
+// WithSubscriptions 声明订阅列表：每次连接（含重连）成功后自动恢复
+func WithSubscriptions(topic string, qos byte) Option {
+	return func(co *clientOptions) {
+		co.subscriptions = append(co.subscriptions, paho.SubscribeOptions{Topic: topic, QoS: qos})
 	}
 }
 
@@ -178,3 +193,105 @@ func SubscribeTopic(c *paho.Client, topic string, qos byte) error {
 		<-t.C
 	}
 }
+
+// NewAutoClient 创建带自动重连的 MQTT 客户端（autopaho 实现），供 hub 使用。
+// 断线后自动重连并在每次连接成功时恢复 WithSubscriptions 声明的订阅，
+// 解决 *paho.Client 单连接断开后 "no connection available" 永久失效的问题。
+func NewAutoClient(ctx context.Context, cfg *config.MQTTConfig, opts ...Option) (*autopaho.ConnectionManager, error) {
+	options := &clientOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	serverURL, err := url.Parse(fmt.Sprintf("%s://%s:%d", cfg.Schema, cfg.Host, cfg.Port))
+	if err != nil {
+		return nil, fmt.Errorf("解析 broker 地址失败: %w", err)
+	}
+
+	// 收到消息时调用 handler
+	var handlers []func(paho.PublishReceived) (bool, error)
+	if options.handler != nil {
+		handlers = []func(paho.PublishReceived) (bool, error){options.handler}
+	}
+
+	// 重连退避：以配置的基准间隔固定等待（后续可改为指数退避）
+	retryBase := time.Duration(cfg.Retry.ConnRetryBase) * time.Second
+	if retryBase <= 0 {
+		retryBase = 2 * time.Second
+	}
+
+	// 每次连接成功（含重连）后自动恢复订阅
+	subs := options.subscriptions
+	onConnectionUp := func(cm *autopaho.ConnectionManager, connack *paho.Connack) {
+		log.Printf("MQTT 已连接 (server=%s)", serverURL.Host)
+		if len(subs) == 0 {
+			return
+		}
+		subCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := cm.Subscribe(subCtx, &paho.Subscribe{Subscriptions: subs}); err != nil {
+			log.Printf("恢复 %d 个订阅失败: %v", len(subs), err)
+		}
+	}
+
+	cc := autopaho.ClientConfig{
+		ServerUrls:                    []*url.URL{serverURL},
+		KeepAlive:                     cfg.KeepAlive,
+		CleanStartOnInitialConnection: cfg.CleanStart,
+		SessionExpiryInterval:         cfg.SessionExpiry,
+		ConnectTimeout:                10 * time.Second,
+		ReconnectBackoff:              func(attempt int) time.Duration { return retryBase },
+		OnConnectionUp:                onConnectionUp,
+		OnConnectError:                func(err error) { log.Printf("MQTT 连接失败，将继续重试: %v", err) },
+		ConnectUsername:               cfg.UserName,
+		ConnectPassword:               []byte(cfg.Password),
+		WillMessage:                   willMessage(cfg, options),
+	}
+	// 未开启认证时清空用户名密码
+	if !cfg.Auth {
+		cc.ConnectUsername = ""
+		cc.ConnectPassword = nil
+	}
+	// 内嵌的 paho.ClientConfig：客户端标识与消息回调
+	cc.ClientID = cfg.ClientId
+	cc.OnPublishReceived = handlers
+	// 最大包限制是 CONNECT 属性，通过定制连接包下发
+	if cfg.MaxPacketSize > 0 {
+		maxPacket := cfg.MaxPacketSize
+		cc.ConnectPacketBuilder = func(c *paho.Connect, u *url.URL) (*paho.Connect, error) {
+			if c.Properties == nil {
+				c.Properties = &paho.ConnectProperties{}
+			}
+			c.Properties.MaximumPacketSize = &maxPacket
+			return c, nil
+		}
+	}
+
+	cm, err := autopaho.NewConnection(ctx, cc)
+	if err != nil {
+		return nil, fmt.Errorf("创建 MQTT 连接失败: %w", err)
+	}
+
+	// 首次连接成功才算就绪（后续断线由 autopaho 自动恢复）
+	awaitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := cm.AwaitConnection(awaitCtx); err != nil {
+		return nil, fmt.Errorf("等待 MQTT 首次连接失败: %w", err)
+	}
+
+	return cm, nil
+}
+
+// willMessage 按配置组装遗嘱消息（未启用时返回 nil）
+func willMessage(cfg *config.MQTTConfig, options *clientOptions) *paho.WillMessage {
+	if !cfg.Will.Enabled || options.willTopic == "" {
+		return nil
+	}
+	return &paho.WillMessage{
+		Topic:   options.willTopic,
+		QoS:     cfg.Will.QoS,
+		Retain:  cfg.Will.Retain,
+		Payload: options.willPayload,
+	}
+}
+

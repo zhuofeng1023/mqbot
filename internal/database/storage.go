@@ -65,14 +65,14 @@ func (s *Storage) initDatabase(ctx context.Context) error {
 	dbName := "MQBOT"
 
 	// 创建数据库 (如果不存在)
-	createDB := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s KEEP 3650 DAYS 10 BLOCKS 16;", dbName)
+	createDB := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s KEEP 3650;", dbName)
 	if _, err := s.db.ExecContext(ctx, createDB); err != nil {
 		return fmt.Errorf("创建数据库失败: %w", err)
 	}
 
-	// 创建超级表 (如果不存在)
+	// 创建超级表 (如果不存在)；state 是 TDengine 3.x 保留字，列名需反引号转义
 	createSTable := fmt.Sprintf(`CREATE STABLE IF NOT EXISTS %s.robot_status (
-		ts TIMESTAMP, state BINARY(20), battery FLOAT, x DOUBLE, y DOUBLE, speed FLOAT
+		ts TIMESTAMP, `+"`state`"+` BINARY(20), battery FLOAT, x DOUBLE, y DOUBLE, speed FLOAT
 	) TAGS (robot_id BINARY(50));`, dbName)
 	
 	if _, err := s.db.ExecContext(ctx, createSTable); err != nil {

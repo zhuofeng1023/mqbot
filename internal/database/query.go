@@ -30,9 +30,10 @@ func (s *Storage) QueryHistory(robotID string, from, to int64, limit int) ([]Poi
 	points := make([]Point, 0)
 
 	// 使用 ? 占位符，防止 SQL 注入
-	query := `SELECT ts, state, battery, x, y, speed 
-			  FROM MQBOT.robot_status 
-			  WHERE robot_id = ? AND ts >= ? AND ts < ? 
+	// state 是保留字，需反引号转义
+	query := `SELECT ts, ` + "`state`" + `, battery, x, y, speed
+			  FROM MQBOT.robot_status
+			  WHERE robot_id = ? AND ts >= ? AND ts < ?
 			  ORDER BY ts ASC LIMIT ?`
 
 	rows, err := s.db.QueryContext(context.Background(), query, robotID, from, to, limit)
@@ -104,8 +105,8 @@ func (s *Storage) QueryTrack(robotID string, from, to int64, interval string) ([
 
 // QueryLatest 查某设备最近一条
 func (s *Storage) QueryLatest(robotID string) (*Point, error) {
-	query := `SELECT LAST(ts), LAST(state), LAST(battery), LAST(x), LAST(y), LAST(speed) 
-			  FROM MQBOT.robot_status 
+	query := `SELECT LAST(ts), LAST(` + "`state`" + `), LAST(battery), LAST(x), LAST(y), LAST(speed)
+			  FROM MQBOT.robot_status
 			  WHERE robot_id = ?`
 
 	var p Point

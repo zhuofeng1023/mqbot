@@ -12,14 +12,14 @@ import (
 
 // Requester 管理请求-响应模式：发请求、等响应、超时控制
 type Requester struct {
-	client  *paho.Client
+	client  Publisher
 	pending map[string]chan []byte // correlation_id 等待响应的 channel
 	mu      sync.Mutex
 	timeout time.Duration // 响应超时时间
 }
 
 // NewRequester 创建请求管理器
-func NewRequester(client *paho.Client, timeout time.Duration) *Requester {
+func NewRequester(client Publisher, timeout time.Duration) *Requester {
 	return &Requester{
 		client:  client,
 		pending: make(map[string]chan []byte),
