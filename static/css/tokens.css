@@ -1,0 +1,45 @@
+/* ========== 设计令牌 ==========
+ * 唯一权威来源：颜色、字体、圆角等视觉变量集中在此，
+ * 其余样式文件只消费变量，不写裸色值。
+ */
+:root {
+    /* 三级背景（画布/面板/卡片） */
+    --bg-deep: #0a0e14;
+    --bg: #0d1117;
+    --bg-raised: #161b22;
+    --bg-overlay: #1c2128;
+
+    /* 边框 */
+    --border: #30363d;
+    --border-dim: #21262d;
+
+    /* 文字 */
+    --text: #e6edf3;
+    --text-dim: #7d8590;
+    --text-muted: #484f58;
+
+    /* 主色与语义色 */
+    --accent: #58a6ff;
+    --accent-dim: #1f6feb;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+
+    /* 字体：数据用 mono，正文用 sans */
+    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+    --font-sans: 'Noto Sans SC', system-ui, sans-serif;
+
+    --radius: 6px;
+}
+
+/* ========== 状态色（唯一权威来源）==========
+ * 地图、徽章、进度条共用；颜色不是唯一载体，必须同时显示文字。
+ */
+:root {
+    --state-idle: var(--green);
+    --state-moving: var(--accent);
+    --state-charging: var(--yellow);
+    --state-error: var(--red);
+    --state-offline: var(--text-dim);
+}

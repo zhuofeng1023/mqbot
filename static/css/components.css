@@ -1,0 +1,357 @@
+/* ========== 通用：徽章 / 电量条 / 指标卡 ========== */
+
+/* 状态徽章：颜色不是唯一载体，文字始终显示 */
+.badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.badge--IDLE {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--state-idle);
+}
+
+.badge--MOVING {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--state-moving);
+}
+
+.badge--CHARGING {
+    background: rgba(210, 153, 34, 0.15);
+    color: var(--state-charging);
+}
+
+.badge--ERROR {
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--state-error);
+}
+
+.badge--OFFLINE {
+    background: rgba(125, 133, 144, 0.1);
+    color: var(--state-offline);
+}
+
+/* 电量条 */
+.battery {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.battery__bar {
+    flex: 1;
+    height: 3px;
+    background: var(--border-dim);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.battery__fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s, background 0.3s;
+}
+
+.battery__text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 28px;
+    text-align: right;
+}
+
+.battery__warn {
+    color: var(--red);
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+/* 指标卡 */
+.stat-card {
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 120px;
+}
+
+.stat-card__label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+}
+
+.stat-card__value {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.stat-card--warn .stat-card__value {
+    color: var(--yellow);
+}
+
+.stat-card--danger .stat-card__value {
+    color: var(--red);
+}
+
+/* 指标条容器 */
+.dashboard {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-dim);
+}
+
+/* ========== 通用：复选框 / 搜索框 ========== */
+
+/* 复选框：自定义外观，支持半选态 */
+.checkbox {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-deep);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    color: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.checkbox:hover {
+    border-color: var(--accent);
+}
+
+.checkbox.checked {
+    background: var(--accent-dim);
+    border-color: var(--accent-dim);
+    color: #fff;
+}
+
+.checkbox.indeterminate {
+    background: var(--accent-dim);
+    border-color: var(--accent-dim);
+    color: #fff;
+}
+
+/* 搜索框 */
+.search {
+    position: relative;
+    flex: 1;
+}
+
+.search__input {
+    width: 100%;
+    background: var(--bg-deep);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius);
+    padding: 6px 8px 6px 26px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search__input:focus {
+    border-color: var(--accent-dim);
+}
+
+.search__input::placeholder {
+    color: var(--text-muted);
+}
+
+.search__icon {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 12px;
+    pointer-events: none;
+}
+
+/* ========== 通用：Toast ========== */
+.toast-container {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    max-width: 320px;
+    animation: toast-in 0.2s ease-out;
+}
+
+.toast--success {
+    border-left-color: var(--green);
+}
+
+.toast--error {
+    border-left-color: var(--red);
+}
+
+.toast--info {
+    border-left-color: var(--accent);
+}
+
+.toast.fade-out {
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ========== 通用：确认弹窗 ========== */
+.dialog-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(1, 4, 9, 0.7);
+    z-index: 10001;
+    display: grid;
+    place-items: center;
+}
+
+.dialog {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 360px;
+    max-width: calc(100vw - 40px);
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.dialog__title {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.dialog__message {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 18px;
+    word-break: break-all;
+}
+
+.dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* ========== 通用：Tooltip（JS 定位）========== */
+.tooltip {
+    position: fixed;
+    z-index: 10002;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text);
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    max-width: 260px;
+}
+
+/* ========== 通用：按钮 ========== */
+.btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s, border-color 0.2s;
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* 主按钮（发送/确认） */
+.btn--primary {
+    background: var(--accent-dim);
+    color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+    background: #388bfd;
+}
+
+/* 危险按钮（停止，描边样式防误触） */
+.btn--danger {
+    background: transparent;
+    border: 1px solid var(--red);
+    color: var(--red);
+}
+
+.btn--danger:hover:not(:disabled) {
+    background: rgba(248, 81, 73, 0.15);
+}
+
+/* 幽灵按钮（取消/返回/工具） */
+.btn--ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+}
+
+.btn--ghost:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* loading 态：下发中防重复提交 */
+.btn.loading {
+    opacity: 0.6;
+    cursor: wait;
+}
+

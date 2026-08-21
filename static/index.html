@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN">
 
 <head>
   <meta charset="UTF-8">
@@ -9,12 +9,15 @@
   <link
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
     rel="stylesheet">
-  <link href="static/style.css" rel="stylesheet" />
+  <link href="static/css/tokens.css" rel="stylesheet" />
+  <link href="static/css/base.css" rel="stylesheet" />
+  <link href="static/css/components.css" rel="stylesheet" />
+  <link href="static/css/views.css" rel="stylesheet" />
 </head>
 
 <body>
   <div class="app">
-    <!-- 顶栏 -->
+    <!-- 顶栏：Logo + 标题 + WS 连接状态 -->
     <header class="header">
       <div class="header__logo">M</div>
       <span class="header__title">mqbot 控制中心</span>
@@ -25,46 +28,26 @@
       </div>
     </header>
 
-    <!-- 主体 -->
     <div class="main">
-      <!-- 画布 -->
-      <div class="canvas-area">
-        <canvas id="map"></canvas>
-        <div class="canvas-info" id="canvasInfo">移动鼠标查看坐标</div>
-      </div>
-
-      <!-- 侧边栏 -->
-      <div class="sidebar">
-        <!-- 机器人列表 -->
-        <div class="robot-list">
-          <div class="robot-list__title">Robots</div>
-          <div id="robotCards">
-            <div class="robot-list__empty">等待机器人连接...</div>
-          </div>
-        </div>
-
-        <!-- 任务下发 -->
-        <div class="task-form">
-          <div class="task-form__title">Task Dispatch</div>
-          <div class="form-selected" id="selectedInfo">点击列表选择机器人</div>
-          <div class="form-row">
-            <div>
-              <div class="form-label">X</div>
-              <input class="form-input" id="targetX" type="number" step="0.1" placeholder="0.0">
-            </div>
-            <div>
-              <div class="form-label">Y</div>
-              <input class="form-input" id="targetY" type="number" step="0.1" placeholder="0.0">
-            </div>
-          </div>
-          <button class="btn-send" id="btnSend" disabled>发送移动指令</button>
-          <button class="btn-stop" id="btnStop" disabled>停止</button>
+      <!-- 中间主区域：指标条 + 地图 -->
+      <div class="stage">
+        <div class="dashboard" id="dashboard"></div>
+        <div class="map-area" id="mapArea">
+          <canvas id="map"></canvas>
+          <!-- 左上角悬浮工具栏与模式提示由 JS 挂载 -->
+          <div class="map-coord" id="mapCoord">移动鼠标查看坐标</div>
         </div>
       </div>
+
+      <!-- 右侧栏：列表 / 详情 / 批量操作，内容由 JS 按状态切换 -->
+      <aside class="sidebar" id="sidebar"></aside>
     </div>
   </div>
 
-  <script src="static/script.js"></script>
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script type="module" src="static/js/main.js"></script>
 </body>
 
 </html>
